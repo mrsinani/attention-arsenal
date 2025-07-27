@@ -13,6 +13,7 @@ struct AddArsenalView: View {
     @State private var hasDueDate = false
     @State private var selectedNotificationInterval: NotificationInterval = .none
     @State private var showingPermissionAlert = false
+    @State private var isSaving = false
     
     var body: some View {
         NavigationView {
@@ -62,18 +63,29 @@ struct AddArsenalView: View {
                     Button("Cancel") {
                         dismiss()
                     }
+                    .disabled(isSaving)
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
                         saveArsenal()
                     }
-                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSaving)
+                    .overlay(
+                        Group {
+                            if isSaving {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                            }
+                        }
+                    )
                 }
             }
             .alert("Notification Permission Required", isPresented: $showingPermissionAlert) {
                 Button("Request Permission") {
-                    requestNotificationPermission()
+                    Task {
+                        await requestNotificationPermission()
+                    }
                 }
                 Button("Cancel", role: .cancel) { }
             } message: {
@@ -95,25 +107,28 @@ struct AddArsenalView: View {
             return
         }
         
+        isSaving = true
+        
+        // Use the synchronous method
         if let _ = arsenalManager.createArsenal(
             title: trimmedTitle,
             description: descriptionToUse,
             dueDate: dueDateToUse,
             notificationInterval: selectedNotificationInterval.rawValue
         ) {
+            isSaving = false
             dismiss()
+        } else {
+            isSaving = false
+            // You could add error handling here
         }
     }
     
-    private func requestNotificationPermission() {
-        Task {
-            let granted = await notificationManager.requestNotificationPermission()
-            if granted {
-                // Retry saving the arsenal
-                await MainActor.run {
-                    saveArsenal()
-                }
-            }
+    private func requestNotificationPermission() async {
+        let granted = await notificationManager.requestNotificationPermission()
+        if granted {
+            // Retry saving the arsenal
+            saveArsenal()
         }
     }
 }

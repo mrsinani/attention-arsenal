@@ -63,12 +63,19 @@ class ArsenalManager: ObservableObject {
         arsenal.createdDate = Date()
         arsenal.isCompleted = false
         
-        let success = saveContext()
-        if success && notificationInterval > 0 {
-            notificationManager.scheduleNotification(for: arsenal)
+        do {
+            try viewContext.save()
+            
+            // Schedule notification if needed
+            if notificationInterval > 0 {
+                notificationManager.scheduleNotification(for: arsenal)
+            }
+            
+            return arsenal
+        } catch {
+            print("Error saving context: \(error)")
+            return nil
         }
-        
-        return success ? arsenal : nil
     }
     
     // MARK: - Read
@@ -118,26 +125,33 @@ class ArsenalManager: ObservableObject {
             arsenal.isCompleted = isCompleted
         }
         
-        return saveContext()
+        do {
+            try viewContext.save()
+            return true
+        } catch {
+            print("Error saving context: \(error)")
+            return false
+        }
     }
     
     func toggleCompletion(for arsenal: Arsenal) -> Bool {
         arsenal.isCompleted.toggle()
-        let success = saveContext()
         
-        if success {
+        do {
+            try viewContext.save()
+            
+            // Handle notifications
             if arsenal.isCompleted {
-                // Cancel notifications when arsenal is completed
                 notificationManager.cancelNotifications(for: arsenal)
-            } else {
-                // Re-schedule notifications if arsenal is uncompleted and has interval
-                if arsenal.notificationInterval > 0 {
-                    notificationManager.scheduleNotification(for: arsenal)
-                }
+            } else if arsenal.notificationInterval > 0 {
+                notificationManager.scheduleNotification(for: arsenal)
             }
+            
+            return true
+        } catch {
+            print("Error saving context: \(error)")
+            return false
         }
-        
-        return success
     }
     
     // MARK: - Delete
@@ -145,7 +159,14 @@ class ArsenalManager: ObservableObject {
         // Cancel notifications before deleting
         notificationManager.cancelNotifications(for: arsenal)
         viewContext.delete(arsenal)
-        return saveContext()
+        
+        do {
+            try viewContext.save()
+            return true
+        } catch {
+            print("Error saving context: \(error)")
+            return false
+        }
     }
     
     func deleteAllArsenals() -> Bool {
@@ -154,20 +175,10 @@ class ArsenalManager: ObservableObject {
         
         do {
             try viewContext.execute(deleteRequest)
-            return saveContext()
-        } catch {
-            print("Error deleting all arsenals: \(error)")
-            return false
-        }
-    }
-    
-    // MARK: - Helper Methods
-    private func saveContext() -> Bool {
-        do {
             try viewContext.save()
             return true
         } catch {
-            print("Error saving context: \(error)")
+            print("Error deleting all arsenals: \(error)")
             return false
         }
     }

@@ -41,7 +41,7 @@ class NotificationManager: ObservableObject {
     func scheduleNotification(for arsenal: Arsenal) {
         guard arsenal.notificationInterval > 0 else { return }
         
-        // Cancel any existing notifications for this arsenal
+        // Cancel any existing notifications for this arsenal first
         cancelNotifications(for: arsenal)
         
         let content = UNMutableNotificationContent()
@@ -51,6 +51,9 @@ class NotificationManager: ObservableObject {
         
         // Add arsenal ID to user info for identification
         content.userInfo = ["arsenalID": arsenal.objectID.uriRepresentation().absoluteString]
+        
+        // Ensure the app icon shows in notifications
+        content.categoryIdentifier = "ARSENAL_REMINDER"
         
         // Create trigger that repeats based on the interval
         let trigger = UNTimeIntervalNotificationTrigger(
@@ -116,13 +119,30 @@ class NotificationManager: ObservableObject {
     }
     
     // MARK: - Notification Statistics
-    func getPendingNotificationCount() async -> Int {
-        let requests = await UNUserNotificationCenter.current().pendingNotificationRequests()
-        return requests.count
+    func getPendingNotificationCount() -> Int {
+        var count = 0
+        let semaphore = DispatchSemaphore(value: 0)
+        
+        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+            count = requests.count
+            semaphore.signal()
+        }
+        
+        semaphore.wait()
+        return count
     }
     
-    func listPendingNotifications() async -> [UNNotificationRequest] {
-        return await UNUserNotificationCenter.current().pendingNotificationRequests()
+    func listPendingNotifications() -> [UNNotificationRequest] {
+        var requests: [UNNotificationRequest] = []
+        let semaphore = DispatchSemaphore(value: 0)
+        
+        UNUserNotificationCenter.current().getPendingNotificationRequests { pendingRequests in
+            requests = pendingRequests
+            semaphore.signal()
+        }
+        
+        semaphore.wait()
+        return requests
     }
 }
 

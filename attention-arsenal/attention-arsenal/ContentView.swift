@@ -24,7 +24,13 @@ struct ContentView: View {
                         }
                     }
                 }
-                .sheet(isPresented: $showingAddArsenal) {
+                .sheet(isPresented: $showingAddArsenal, onDismiss: {
+                    // Trigger a small delay to ensure Core Data changes are processed
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        // This will trigger the @FetchRequest to refresh
+                        viewContext.refreshAllObjects()
+                    }
+                }) {
                     AddArsenalView()
                         .environment(\.managedObjectContext, viewContext)
                 }
@@ -36,7 +42,9 @@ struct ContentView: View {
         }
         .alert("Enable Notifications", isPresented: $showingNotificationPermissionAlert) {
             Button("Enable") {
-                requestNotificationPermission()
+                Task {
+                    await requestNotificationPermission()
+                }
             }
             Button("Not Now", role: .cancel) { }
         } message: {
@@ -55,16 +63,17 @@ struct ContentView: View {
         }
     }
     
-    private func requestNotificationPermission() {
-        Task {
-            _ = await notificationManager.requestNotificationPermission()
-        }
+    private func requestNotificationPermission() async {
+        _ = await notificationManager.requestNotificationPermission()
     }
 }
 
 struct ArsenalListView: View {
     @EnvironmentObject var arsenalManager: ArsenalManager
-    @State private var arsenals: [Arsenal] = []
+    @FetchRequest(
+        sortDescriptors: [NSSortDescriptor(keyPath: \Arsenal.createdDate, ascending: false)],
+        animation: .default
+    ) private var arsenals: FetchedResults<Arsenal>
     
     var body: some View {
         List {
@@ -78,16 +87,10 @@ struct ArsenalListView: View {
             }
         }
         .listStyle(PlainListStyle())
-        .onAppear {
-            loadArsenals()
-        }
         .refreshable {
-            loadArsenals()
+            // Force a refresh of the fetch request
+            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         }
-    }
-    
-    private func loadArsenals() {
-        arsenals = arsenalManager.fetchArsenals(completed: false)
     }
     
     private func deleteArsenals(offsets: IndexSet) {
@@ -95,41 +98,42 @@ struct ArsenalListView: View {
             let arsenal = arsenals[index]
             _ = arsenalManager.deleteArsenal(arsenal)
         }
-        loadArsenals()
     }
 }
 
 struct ArsenalRowView: View {
     @EnvironmentObject var arsenalManager: ArsenalManager
     let arsenal: Arsenal
-    @State private var isCompleted: Bool
-    
-    init(arsenal: Arsenal) {
-        self.arsenal = arsenal
-        self._isCompleted = State(initialValue: arsenal.isCompleted)
-    }
+    @State private var isUpdating = false
     
     var body: some View {
         HStack(spacing: 16) {
             // Checkbox
             Button(action: {
-                isCompleted.toggle()
-                _ = arsenalManager.toggleCompletion(for: arsenal)
+                toggleCompletion()
             }) {
-                Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.title2)
-                    .foregroundColor(isCompleted ? .green : .gray)
-                    .animation(.easeInOut(duration: 0.2), value: isCompleted)
+                Group {
+                    if isUpdating {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    } else {
+                        Image(systemName: arsenal.isCompleted ? "checkmark.circle.fill" : "circle")
+                            .font(.title2)
+                            .foregroundColor(arsenal.isCompleted ? .green : .gray)
+                    }
+                }
+                .animation(.easeInOut(duration: 0.2), value: arsenal.isCompleted)
             }
             .buttonStyle(PlainButtonStyle())
+            .disabled(isUpdating)
             
             // Arsenal content
             VStack(alignment: .leading, spacing: 4) {
                 Text(arsenal.title ?? "Untitled Arsenal")
                     .font(.body)
                     .fontWeight(.medium)
-                    .strikethrough(isCompleted)
-                    .foregroundColor(isCompleted ? .secondary : .primary)
+                    .strikethrough(arsenal.isCompleted)
+                    .foregroundColor(arsenal.isCompleted ? .secondary : .primary)
                 
                 if let description = arsenal.arsenalDescription, !description.isEmpty {
                     Text(description)
@@ -148,7 +152,7 @@ struct ArsenalRowView: View {
             Spacer()
             
             // Notification indicator
-            if arsenal.notificationInterval > 0 {
+            if arsenal.notificationInterval > 0 && !arsenal.isCompleted {
                 Image(systemName: "bell.fill")
                     .font(.caption)
                     .foregroundColor(.blue)
@@ -158,6 +162,16 @@ struct ArsenalRowView: View {
         .contentShape(Rectangle())
         .onTapGesture {
             // TODO: Navigate to edit view
+        }
+    }
+    
+    private func toggleCompletion() {
+        isUpdating = true
+        
+        // Small delay to show loading state
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            _ = arsenalManager.toggleCompletion(for: arsenal)
+            isUpdating = false
         }
     }
 }

@@ -2,13 +2,16 @@ import SwiftUI
 import UserNotifications
 
 @main
-struct app_templateApp: App {
+struct attention_arsenalApp: App {
     let persistenceController = PersistenceController.shared
     @StateObject private var notificationManager = NotificationManager.shared
     
     init() {
         // Set up notification delegate
         UNUserNotificationCenter.current().delegate = NotificationDelegate.shared
+        
+        // Register notification categories
+        setupNotificationCategories()
     }
 
     var body: some Scene {
@@ -21,6 +24,19 @@ struct app_templateApp: App {
                     await requestNotificationPermissionOnStartup()
                 }
         }
+    }
+    
+    private func setupNotificationCategories() {
+        // Create notification category for arsenal reminders
+        let category = UNNotificationCategory(
+            identifier: "ARSENAL_REMINDER",
+            actions: [],
+            intentIdentifiers: [],
+            options: [.customDismissAction]
+        )
+        
+        // Register the category
+        UNUserNotificationCenter.current().setNotificationCategories([category])
     }
     
     private func requestNotificationPermissionOnStartup() async {

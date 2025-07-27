@@ -12,37 +12,37 @@
 			containerPortal = B14E77182E3590A50052BB04 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = B14E771F2E3590A50052BB04;
-			remoteInfo = "app-template";
+			remoteInfo = "attention-arsenal";
 		};
 		B14E77392E3590A60052BB04 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = B14E77182E3590A50052BB04 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = B14E771F2E3590A50052BB04;
-			remoteInfo = "app-template";
+			remoteInfo = "attention-arsenal";
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		B14E77202E3590A50052BB04 /* app-template.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "app-template.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		B14E772E2E3590A60052BB04 /* app-templateTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "app-templateTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
-		B14E77382E3590A60052BB04 /* app-templateUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "app-templateUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B14E77202E3590A50052BB04 /* attention-arsenal.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "attention-arsenal.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B14E772E2E3590A60052BB04 /* attention-arsenalTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "attention-arsenalTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B14E77382E3590A60052BB04 /* attention-arsenalUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "attention-arsenalUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		B14E77222E3590A50052BB04 /* app-template */ = {
+		B14E77222E3590A50052BB04 /* attention-arsenal */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "app-template";
+			path = "attention-arsenal";
 			sourceTree = "<group>";
 		};
-		B14E77312E3590A60052BB04 /* app-templateTests */ = {
+		B14E77312E3590A60052BB04 /* attention-arsenalTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "app-templateTests";
+			path = "attention-arsenalTests";
 			sourceTree = "<group>";
 		};
-		B14E773B2E3590A60052BB04 /* app-templateUITests */ = {
+		B14E773B2E3590A60052BB04 /* attention-arsenalUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "app-templateUITests";
+			path = "attention-arsenalUITests";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -75,9 +75,9 @@
 		B14E77172E3590A50052BB04 = {
 			isa = PBXGroup;
 			children = (
-				B14E77222E3590A50052BB04 /* app-template */,
-				B14E77312E3590A60052BB04 /* app-templateTests */,
-				B14E773B2E3590A60052BB04 /* app-templateUITests */,
+				B14E77222E3590A50052BB04 /* attention-arsenal */,
+				B14E77312E3590A60052BB04 /* attention-arsenalTests */,
+				B14E773B2E3590A60052BB04 /* attention-arsenalUITests */,
 				B14E77212E3590A50052BB04 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -85,9 +85,9 @@
 		B14E77212E3590A50052BB04 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				B14E77202E3590A50052BB04 /* app-template.app */,
-				B14E772E2E3590A60052BB04 /* app-templateTests.xctest */,
-				B14E77382E3590A60052BB04 /* app-templateUITests.xctest */,
+				B14E77202E3590A50052BB04 /* attention-arsenal.app */,
+				B14E772E2E3590A60052BB04 /* attention-arsenalTests.xctest */,
+				B14E77382E3590A60052BB04 /* attention-arsenalUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -95,9 +95,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		B14E771F2E3590A50052BB04 /* app-template */ = {
+		B14E771F2E3590A50052BB04 /* attention-arsenal */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = B14E77422E3590A60052BB04 /* Build configuration list for PBXNativeTarget "app-template" */;
+			buildConfigurationList = B14E77422E3590A60052BB04 /* Build configuration list for PBXNativeTarget "attention-arsenal" */;
 			buildPhases = (
 				B14E771C2E3590A50052BB04 /* Sources */,
 				B14E771D2E3590A50052BB04 /* Frameworks */,
@@ -108,18 +108,18 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				B14E77222E3590A50052BB04 /* app-template */,
+				B14E77222E3590A50052BB04 /* attention-arsenal */,
 			);
-			name = "app-template";
+			name = "attention-arsenal";
 			packageProductDependencies = (
 			);
-			productName = "app-template";
-			productReference = B14E77202E3590A50052BB04 /* app-template.app */;
+			productName = "attention-arsenal";
+			productReference = B14E77202E3590A50052BB04 /* attention-arsenal.app */;
 			productType = "com.apple.product-type.application";
 		};
-		B14E772D2E3590A60052BB04 /* app-templateTests */ = {
+		B14E772D2E3590A60052BB04 /* attention-arsenalTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = B14E77452E3590A60052BB04 /* Build configuration list for PBXNativeTarget "app-templateTests" */;
+			buildConfigurationList = B14E77452E3590A60052BB04 /* Build configuration list for PBXNativeTarget "attention-arsenalTests" */;
 			buildPhases = (
 				B14E772A2E3590A60052BB04 /* Sources */,
 				B14E772B2E3590A60052BB04 /* Frameworks */,
@@ -131,18 +131,18 @@
 				B14E77302E3590A60052BB04 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				B14E77312E3590A60052BB04 /* app-templateTests */,
+				B14E77312E3590A60052BB04 /* attention-arsenalTests */,
 			);
-			name = "app-templateTests";
+			name = "attention-arsenalTests";
 			packageProductDependencies = (
 			);
-			productName = "app-templateTests";
-			productReference = B14E772E2E3590A60052BB04 /* app-templateTests.xctest */;
+			productName = "attention-arsenalTests";
+			productReference = B14E772E2E3590A60052BB04 /* attention-arsenalTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		B14E77372E3590A60052BB04 /* app-templateUITests */ = {
+		B14E77372E3590A60052BB04 /* attention-arsenalUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = B14E77482E3590A60052BB04 /* Build configuration list for PBXNativeTarget "app-templateUITests" */;
+			buildConfigurationList = B14E77482E3590A60052BB04 /* Build configuration list for PBXNativeTarget "attention-arsenalUITests" */;
 			buildPhases = (
 				B14E77342E3590A60052BB04 /* Sources */,
 				B14E77352E3590A60052BB04 /* Frameworks */,
@@ -154,13 +154,13 @@
 				B14E773A2E3590A60052BB04 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				B14E773B2E3590A60052BB04 /* app-templateUITests */,
+				B14E773B2E3590A60052BB04 /* attention-arsenalUITests */,
 			);
-			name = "app-templateUITests";
+			name = "attention-arsenalUITests";
 			packageProductDependencies = (
 			);
-			productName = "app-templateUITests";
-			productReference = B14E77382E3590A60052BB04 /* app-templateUITests.xctest */;
+			productName = "attention-arsenalUITests";
+			productReference = B14E77382E3590A60052BB04 /* attention-arsenalUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -186,7 +186,7 @@
 					};
 				};
 			};
-			buildConfigurationList = B14E771B2E3590A50052BB04 /* Build configuration list for PBXProject "app-template" */;
+			buildConfigurationList = B14E771B2E3590A50052BB04 /* Build configuration list for PBXProject "attention-arsenal" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -200,9 +200,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				B14E771F2E3590A50052BB04 /* app-template */,
-				B14E772D2E3590A60052BB04 /* app-templateTests */,
-				B14E77372E3590A60052BB04 /* app-templateUITests */,
+				B14E771F2E3590A50052BB04 /* attention-arsenal */,
+				B14E772D2E3590A60052BB04 /* attention-arsenalTests */,
+				B14E77372E3590A60052BB04 /* attention-arsenalUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -258,12 +258,12 @@
 /* Begin PBXTargetDependency section */
 		B14E77302E3590A60052BB04 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = B14E771F2E3590A50052BB04 /* app-template */;
+			target = B14E771F2E3590A50052BB04 /* attention-arsenal */;
 			targetProxy = B14E772F2E3590A60052BB04 /* PBXContainerItemProxy */;
 		};
 		B14E773A2E3590A60052BB04 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = B14E771F2E3590A50052BB04 /* app-template */;
+			target = B14E771F2E3590A50052BB04 /* attention-arsenal */;
 			targetProxy = B14E77392E3590A60052BB04 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -390,13 +390,14 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "app-template/app_template.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "attention-arsenal/attention_arsenal.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = WC6K89GLMJ;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Attention Arsenal";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -429,13 +430,14 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "app-template/app_template.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "attention-arsenal/attention_arsenal.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = WC6K89GLMJ;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Attention Arsenal";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -474,14 +476,14 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
 				MACOSX_DEPLOYMENT_TARGET = 15.3;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "main.app-templateTests";
+				PRODUCT_BUNDLE_IDENTIFIER = "main.attention-arsenalTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/app-template.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/app-template";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/attention-arsenal.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/attention-arsenal";
 				XROS_DEPLOYMENT_TARGET = 2.4;
 			};
 			name = Debug;
@@ -497,14 +499,14 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
 				MACOSX_DEPLOYMENT_TARGET = 15.3;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "main.app-templateTests";
+				PRODUCT_BUNDLE_IDENTIFIER = "main.attention-arsenalTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/app-template.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/app-template";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/attention-arsenal.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/attention-arsenal";
 				XROS_DEPLOYMENT_TARGET = 2.4;
 			};
 			name = Release;
@@ -519,14 +521,14 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
 				MACOSX_DEPLOYMENT_TARGET = 15.3;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "main.app-templateUITests";
+				PRODUCT_BUNDLE_IDENTIFIER = "main.attention-arsenalUITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_TARGET_NAME = "app-template";
+				TEST_TARGET_NAME = "attention-arsenal";
 				XROS_DEPLOYMENT_TARGET = 2.4;
 			};
 			name = Debug;
@@ -541,14 +543,14 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
 				MACOSX_DEPLOYMENT_TARGET = 15.3;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "main.app-templateUITests";
+				PRODUCT_BUNDLE_IDENTIFIER = "main.attention-arsenalUITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_TARGET_NAME = "app-template";
+				TEST_TARGET_NAME = "attention-arsenal";
 				XROS_DEPLOYMENT_TARGET = 2.4;
 			};
 			name = Release;
@@ -556,7 +558,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		B14E771B2E3590A50052BB04 /* Build configuration list for PBXProject "app-template" */ = {
+		B14E771B2E3590A50052BB04 /* Build configuration list for PBXProject "attention-arsenal" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				B14E77402E3590A60052BB04 /* Debug */,
@@ -565,7 +567,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		B14E77422E3590A60052BB04 /* Build configuration list for PBXNativeTarget "app-template" */ = {
+		B14E77422E3590A60052BB04 /* Build configuration list for PBXNativeTarget "attention-arsenal" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				B14E77432E3590A60052BB04 /* Debug */,
@@ -574,7 +576,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		B14E77452E3590A60052BB04 /* Build configuration list for PBXNativeTarget "app-templateTests" */ = {
+		B14E77452E3590A60052BB04 /* Build configuration list for PBXNativeTarget "attention-arsenalTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				B14E77462E3590A60052BB04 /* Debug */,
@@ -583,7 +585,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		B14E77482E3590A60052BB04 /* Build configuration list for PBXNativeTarget "app-templateUITests" */ = {
+		B14E77482E3590A60052BB04 /* Build configuration list for PBXNativeTarget "attention-arsenalUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				B14E77492E3590A60052BB04 /* Debug */,
