@@ -69,11 +69,14 @@ struct ContentView: View {
 }
 
 struct ArsenalListView: View {
+    @Environment(\.managedObjectContext) private var viewContext
     @EnvironmentObject var arsenalManager: ArsenalManager
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \Arsenal.createdDate, ascending: false)],
         animation: .default
     ) private var arsenals: FetchedResults<Arsenal>
+    @State private var selectedArsenal: Arsenal?
+    @State private var refreshTrigger = UUID()
     
     var body: some View {
         List {
@@ -82,22 +85,43 @@ struct ArsenalListView: View {
             } else {
                 ForEach(arsenals, id: \.objectID) { arsenal in
                     ArsenalRowView(arsenal: arsenal)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button("Delete", role: .destructive) {
+                                _ = arsenalManager.deleteArsenal(arsenal)
+                            }
+                            
+                            Button("Edit") {
+                                selectedArsenal = arsenal
+                            }
+                            .tint(.blue)
+                        }
                 }
-                .onDelete(perform: deleteArsenals)
             }
         }
         .listStyle(PlainListStyle())
         .refreshable {
             // Force a refresh of the fetch request
             try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+            refreshTrigger = UUID()
         }
-    }
-    
-    private func deleteArsenals(offsets: IndexSet) {
-        for index in offsets {
-            let arsenal = arsenals[index]
-            _ = arsenalManager.deleteArsenal(arsenal)
+        .onReceive(NotificationCenter.default.publisher(for: .NSManagedObjectContextDidSave)) { _ in
+            // Refresh the view when Core Data changes
+            DispatchQueue.main.async {
+                viewContext.refreshAllObjects()
+                refreshTrigger = UUID()
+            }
         }
+        .sheet(item: $selectedArsenal, onDismiss: {
+            // Force refresh when edit sheet is dismissed
+            DispatchQueue.main.async {
+                viewContext.refreshAllObjects()
+                refreshTrigger = UUID()
+            }
+        }) { arsenal in
+            EditArsenalView(arsenal: arsenal)
+                .environment(\.managedObjectContext, viewContext)
+        }
+        .id(refreshTrigger) // Force view refresh when trigger changes
     }
 }
 

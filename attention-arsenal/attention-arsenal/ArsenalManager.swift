@@ -125,8 +125,11 @@ class ArsenalManager: ObservableObject {
             arsenal.isCompleted = isCompleted
         }
         
+        // Use the same context as the arsenal object
+        let context = arsenal.managedObjectContext ?? viewContext
+        
         do {
-            try viewContext.save()
+            try context.save()
             return true
         } catch {
             print("Error saving context: \(error)")
