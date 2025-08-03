@@ -194,4 +194,4 @@ class ArsenalManager: ObservableObject {
         
         return (total: allArsenals.count, completed: completed, pending: pending)
     }
-} 
+}
