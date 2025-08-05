@@ -23,7 +23,7 @@ struct EditArsenalView: View {
         self._description = State(initialValue: arsenal.arsenalDescription ?? "")
         self._dueDate = State(initialValue: arsenal.dueDate ?? Date())
         self._hasDueDate = State(initialValue: arsenal.dueDate != nil)
-        self._selectedNotificationInterval = State(initialValue: NotificationInterval(rawValue: arsenal.notificationInterval) ?? .none)
+        self._selectedNotificationInterval = State(initialValue: NotificationInterval(rawValue: Int32(arsenal.notificationInterval)) ?? .none)
     }
     
     var body: some View {

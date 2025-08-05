@@ -3,7 +3,7 @@ import Foundation
 import UserNotifications
 
 // MARK: - Notification Interval Enum
-enum NotificationInterval: Int16, CaseIterable {
+enum NotificationInterval: Int32, CaseIterable {
     case none = 0
     case fiveMinutes = 5
     case fifteenMinutes = 15
@@ -54,7 +54,7 @@ class ArsenalManager: ObservableObject {
     }
     
     // MARK: - Create
-    func createArsenal(title: String, description: String? = nil, dueDate: Date? = nil, notificationInterval: Int16 = 0) -> Arsenal? {
+    func createArsenal(title: String, description: String? = nil, dueDate: Date? = nil, notificationInterval: Int32 = 0) -> Arsenal? {
         let arsenal = Arsenal(context: viewContext)
         arsenal.title = title
         arsenal.arsenalDescription = description
@@ -108,7 +108,7 @@ class ArsenalManager: ObservableObject {
     }
     
     // MARK: - Update
-    func updateArsenal(_ arsenal: Arsenal, title: String? = nil, description: String? = nil, dueDate: Date? = nil, notificationInterval: Int16? = nil, isCompleted: Bool? = nil) -> Bool {
+    func updateArsenal(_ arsenal: Arsenal, title: String? = nil, description: String? = nil, dueDate: Date? = nil, notificationInterval: Int32? = nil, isCompleted: Bool? = nil) -> Bool {
         if let title = title {
             arsenal.title = title
         }

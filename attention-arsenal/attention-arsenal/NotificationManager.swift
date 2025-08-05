@@ -57,7 +57,7 @@ class NotificationManager: ObservableObject {
         
         // Create trigger that repeats based on the interval
         let trigger = UNTimeIntervalNotificationTrigger(
-            timeInterval: TimeInterval(arsenal.notificationInterval * 60), // Convert minutes to seconds
+            timeInterval: TimeInterval(arsenal.notificationInterval) * 60.0, // Convert minutes to seconds
             repeats: true
         )
         
