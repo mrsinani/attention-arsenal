@@ -16,7 +16,7 @@ struct attention_arsenalApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MainTabView()
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
                 .environmentObject(notificationManager)
                 .task {
