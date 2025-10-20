@@ -29,9 +29,22 @@
 		B14E77382E3590A60052BB04 /* attention-arsenalUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "attention-arsenalUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		B1D4EAB12EA618BE0042AC69 /* Exceptions for "attention-arsenal" folder in "attention-arsenal" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = B14E771F2E3590A50052BB04 /* attention-arsenal */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		B14E77222E3590A50052BB04 /* attention-arsenal */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B1D4EAB12EA618BE0042AC69 /* Exceptions for "attention-arsenal" folder in "attention-arsenal" target */,
+			);
 			path = "attention-arsenal";
 			sourceTree = "<group>";
 		};
@@ -399,8 +412,10 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "attention-arsenal/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Attention Arsenal";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "This app needs access to your calendar to display upcoming events and help you manage your tasks alongside your schedule.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -442,8 +457,10 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "attention-arsenal/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Attention Arsenal";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "This app needs access to your calendar to display upcoming events and help you manage your tasks alongside your schedule.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
