@@ -6,9 +6,18 @@ class OpenAIService {
     
     private let apiKey: String
     private let baseURL = "https://api.openai.com/v1/chat/completions"
+    private let urlSession: URLSession
     
     private init() {
         self.apiKey = Secrets.openAIAPIKey
+        
+        // Configure URLSession with proper settings
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 30
+        configuration.timeoutIntervalForResource = 60
+        configuration.waitsForConnectivity = true
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        self.urlSession = URLSession(configuration: configuration)
         
         // Validate API key
         if apiKey == "YOUR_OPENAI_API_KEY_HERE" || apiKey.isEmpty {
@@ -56,7 +65,7 @@ class OpenAIService {
         request.httpBody = try JSONEncoder().encode(requestBody)
         
         // Send request
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await urlSession.data(for: request)
         
         // Check response
         guard let httpResponse = response as? HTTPURLResponse else {

@@ -1,11 +1,19 @@
 import SwiftUI
 import EventKit
+import CoreData
 
 struct EventsView: View {
+    @Environment(\.managedObjectContext) private var viewContext
     @StateObject private var calendarManager = CalendarManager.shared
+    @StateObject private var arsenalManager: ArsenalManager
     @State private var selectedRange: EventTimeRange = .nextWeek
     @State private var showingPermissionAlert = false
     @State private var isLoading = false
+    
+    init() {
+        let manager = ArsenalManager()
+        _arsenalManager = StateObject(wrappedValue: manager)
+    }
     
     var body: some View {
         NavigationView {
@@ -39,7 +47,10 @@ struct EventsView: View {
                 } else if calendarManager.events.isEmpty {
                     EmptyEventsView(range: selectedRange)
                 } else {
-                    EventsList(events: calendarManager.events)
+                    EventsList(
+                        events: calendarManager.events,
+                        arsenalManager: arsenalManager
+                    )
                 }
             }
             .navigationTitle("Events")
@@ -119,18 +130,43 @@ struct CalendarPermissionView: View {
 
 struct EventsList: View {
     let events: [EKEvent]
+    let arsenalManager: ArsenalManager
+    
+    @FetchRequest(
+        sortDescriptors: [NSSortDescriptor(keyPath: \Arsenal.createdDate, ascending: false)],
+        animation: .default
+    ) private var arsenals: FetchedResults<Arsenal>
     
     var body: some View {
         List {
             ForEach(groupedEvents, id: \.date) { group in
                 Section(header: Text(group.title)) {
                     ForEach(group.events, id: \.eventIdentifier) { event in
-                        EventRow(event: event)
+                        if !hasMatchingArsenal(for: event) {
+                            EventRow(
+                                event: event,
+                                arsenalManager: arsenalManager,
+                                onReminderCreated: { }
+                            )
+                        }
                     }
                 }
             }
         }
         .listStyle(InsetGroupedListStyle())
+    }
+    
+    // Check if an event already has a matching arsenal
+    private func hasMatchingArsenal(for event: EKEvent) -> Bool {
+        // Check if any arsenal has a due date matching this event's start date
+        // (within the same minute to account for slight variations)
+        return arsenals.contains { arsenal in
+            guard let dueDate = arsenal.dueDate else { return false }
+            
+            // Compare dates within 1 minute tolerance
+            let timeDifference = abs(dueDate.timeIntervalSince(event.startDate))
+            return timeDifference < 60 // Within 1 minute
+        }
     }
     
     // Group events by day
@@ -171,58 +207,105 @@ struct EventGroup {
 
 struct EventRow: View {
     let event: EKEvent
+    let arsenalManager: ArsenalManager
+    let onReminderCreated: () -> Void
+    
+    @State private var isCreatingReminder = false
+    @State private var showSuccessMessage = false
+    @State private var showErrorAlert = false
+    @State private var errorMessage = ""
+    @State private var isHidden = false
     
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            // Color indicator from calendar
-            RoundedRectangle(cornerRadius: 2)
-                .fill(Color(cgColor: event.calendar.cgColor))
-                .frame(width: 4)
-            
-            VStack(alignment: .leading, spacing: 6) {
-                // Event title
-                Text(event.title ?? "Untitled Event")
-                    .font(.body)
-                    .fontWeight(.medium)
+        if !isHidden {
+            eventContent
+        }
+    }
+    
+    private var eventContent: some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .center, spacing: 12) {
+                // Color indicator from calendar
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color(cgColor: event.calendar.cgColor))
+                    .frame(width: 4)
                 
-                // Time
-                HStack(spacing: 4) {
-                    Image(systemName: "clock")
-                        .font(.caption)
+                VStack(alignment: .leading, spacing: 6) {
+                    // Event title
+                    Text(event.title ?? "Untitled Event")
+                        .font(.body)
+                        .fontWeight(.medium)
                     
-                    if event.isAllDay {
-                        Text("All Day")
-                            .font(.caption)
-                    } else {
-                        Text(timeString(for: event))
-                            .font(.caption)
-                    }
-                }
-                .foregroundColor(.secondary)
-                
-                // Location
-                if let location = event.location, !location.isEmpty {
+                    // Time
                     HStack(spacing: 4) {
-                        Image(systemName: "location")
+                        Image(systemName: "clock")
                             .font(.caption)
-                        Text(location)
-                            .font(.caption)
-                            .lineLimit(1)
+                        
+                        if event.isAllDay {
+                            Text("All Day")
+                                .font(.caption)
+                        } else {
+                            Text(timeString(for: event))
+                                .font(.caption)
+                        }
                     }
                     .foregroundColor(.secondary)
+                    
+                    // Location
+                    if let location = event.location, !location.isEmpty {
+                        HStack(spacing: 4) {
+                            Image(systemName: "location")
+                                .font(.caption)
+                            Text(location)
+                                .font(.caption)
+                                .lineLimit(1)
+                        }
+                        .foregroundColor(.secondary)
+                    }
+                    
+                    // Calendar name
+                    Text(event.calendar.title)
+                        .font(.caption2)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(Color(cgColor: event.calendar.cgColor).opacity(0.2))
+                        .foregroundColor(Color(cgColor: event.calendar.cgColor))
+                        .cornerRadius(4)
                 }
                 
-                // Calendar name
-                Text(event.calendar.title)
-                    .font(.caption2)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(Color(cgColor: event.calendar.cgColor).opacity(0.2))
-                    .foregroundColor(Color(cgColor: event.calendar.cgColor))
-                    .cornerRadius(4)
+                Spacer()
+                
+                // Add Reminder Button
+                Button(action: {
+                    createAIReminder()
+                }) {
+                    if isCreatingReminder {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    } else if showSuccessMessage {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                            .font(.title3)
+                    } else {
+                        VStack(spacing: 2) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title3)
+                            Text("Add")
+                                .font(.caption2)
+                        }
+                        .foregroundColor(.blue)
+                    }
+                }
+                .buttonStyle(PlainButtonStyle())
+                .disabled(isCreatingReminder || showSuccessMessage)
             }
+            .padding(.vertical, 4)
         }
-        .padding(.vertical, 4)
+        .alert("Error", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
+        }
     }
     
     private func timeString(for event: EKEvent) -> String {
@@ -233,6 +316,51 @@ struct EventRow: View {
         let endTime = formatter.string(from: event.endDate)
         
         return "\(startTime) - \(endTime)"
+    }
+    
+    private func createAIReminder() {
+        isCreatingReminder = true
+        
+        Task {
+            do {
+                // Generate reminder using AI
+                let suggestion = try await AIReminderService.shared.generateReminder(for: event)
+                
+                // Create the arsenal with suggested details
+                await MainActor.run {
+                    let arsenal = arsenalManager.createArsenal(
+                        title: suggestion.title,
+                        description: suggestion.description,
+                        dueDate: event.startDate,
+                        notificationInterval: suggestion.notificationInterval
+                    )
+                    
+                    isCreatingReminder = false
+                    
+                    if arsenal != nil {
+                        // Show success briefly
+                        showSuccessMessage = true
+                        
+                        // Hide the event after showing success
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                            withAnimation {
+                                isHidden = true
+                            }
+                            onReminderCreated()
+                        }
+                    } else {
+                        errorMessage = "Failed to create reminder"
+                        showErrorAlert = true
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isCreatingReminder = false
+                    errorMessage = error.localizedDescription
+                    showErrorAlert = true
+                }
+            }
+        }
     }
 }
 

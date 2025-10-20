@@ -1,5 +1,6 @@
 import SwiftUI
 import UserNotifications
+import AppIntents
 
 @main
 struct attention_arsenalApp: App {

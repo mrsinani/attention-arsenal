@@ -16,6 +16,12 @@ struct MainTabView: View {
                     Label("Events", systemImage: "calendar")
                 }
                 .tag(1)
+            
+            EmailsView()
+                .tabItem {
+                    Label("Emails", systemImage: "envelope.fill")
+                }
+                .tag(2)
         }
     }
 }

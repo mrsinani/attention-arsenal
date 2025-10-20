@@ -4,5 +4,7 @@
 <dict>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>This app needs full access to your calendar to display upcoming events and help you manage your tasks alongside your schedule.</string>
+	<key>NSSiriUsageDescription</key>
+	<string>Use Siri to quickly add reminders and manage your arsenals with voice commands.</string>
 </dict>
 </plist>

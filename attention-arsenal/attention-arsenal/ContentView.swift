@@ -7,6 +7,8 @@ struct ContentView: View {
     @EnvironmentObject var notificationManager: NotificationManager
     @State private var showingAddArsenal = false
     @State private var showingNotificationPermissionAlert = false
+    @State private var showingSiriSetup = false
+    @AppStorage("hasSeenSiriSetup") private var hasSeenSiriSetup = false
     
     var body: some View {
         NavigationView {
@@ -49,6 +51,29 @@ struct ContentView: View {
             Button("Not Now", role: .cancel) { }
         } message: {
             Text("Get reminded about your arsenals with customizable notification intervals.")
+        }
+        .sheet(isPresented: $showingSiriSetup) {
+            NavigationView {
+                SiriSetupView()
+                    .navigationTitle("Siri Setup")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("Done") {
+                                showingSiriSetup = false
+                                hasSeenSiriSetup = true
+                            }
+                        }
+                    }
+            }
+        }
+        .onAppear {
+            // Show Siri setup on first launch
+            if !hasSeenSiriSetup {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    showingSiriSetup = true
+                }
+            }
         }
     }
     
