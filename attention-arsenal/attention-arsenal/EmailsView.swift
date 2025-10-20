@@ -7,6 +7,7 @@ struct EmailsView: View {
                 .navigationTitle("Emails")
                 .navigationBarTitleDisplayMode(.large)
         }
+        .navigationViewStyle(.stack)
     }
 }
 

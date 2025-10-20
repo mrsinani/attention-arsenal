@@ -62,6 +62,7 @@ struct EventsView: View {
                 }
             }
         }
+        .navigationViewStyle(.stack)
     }
     
     private func requestPermission() async {

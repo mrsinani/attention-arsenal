@@ -37,6 +37,7 @@ struct ContentView: View {
                         .environment(\.managedObjectContext, viewContext)
                 }
         }
+        .navigationViewStyle(.stack)
         .environmentObject(arsenalManager)
         .task {
             // Check notification permission status on view appear
@@ -109,17 +110,19 @@ struct ArsenalListView: View {
                 EmptyStateView()
             } else {
                 ForEach(arsenals, id: \.objectID) { arsenal in
-                    ArsenalRowView(arsenal: arsenal)
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            Button("Delete", role: .destructive) {
-                                _ = arsenalManager.deleteArsenal(arsenal)
-                            }
-                            
-                            Button("Edit") {
-                                selectedArsenal = arsenal
-                            }
-                            .tint(.blue)
+                    ArsenalRowView(arsenal: arsenal) {
+                        selectedArsenal = arsenal
+                    }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button("Delete", role: .destructive) {
+                            _ = arsenalManager.deleteArsenal(arsenal)
                         }
+                        
+                        Button("Edit") {
+                            selectedArsenal = arsenal
+                        }
+                        .tint(.blue)
+                    }
                 }
             }
         }
@@ -153,6 +156,7 @@ struct ArsenalListView: View {
 struct ArsenalRowView: View {
     @EnvironmentObject var arsenalManager: ArsenalManager
     let arsenal: Arsenal
+    let onTap: () -> Void
     @State private var isUpdating = false
     
     var body: some View {
@@ -210,7 +214,7 @@ struct ArsenalRowView: View {
         .padding(.vertical, 8)
         .contentShape(Rectangle())
         .onTapGesture {
-            // TODO: Navigate to edit view
+            onTap()
         }
     }
     

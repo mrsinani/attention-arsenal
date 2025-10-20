@@ -3,8 +3,6 @@ import AppIntents
 
 /// View to help users set up Siri shortcuts
 struct SiriSetupView: View {
-    @State private var showingSettings = false
-    
     var body: some View {
         VStack(spacing: 24) {
             // Icon
@@ -36,45 +34,8 @@ struct SiriSetupView: View {
             .padding()
             .background(Color.secondary.opacity(0.1))
             .cornerRadius(12)
-            
-            VStack(spacing: 12) {
-                Text("Want a shorter phrase?")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                
-                Button(action: {
-                    openSiriSettings()
-                }) {
-                    HStack {
-                        Image(systemName: "gear")
-                        Text("Set Up Custom Phrase")
-                    }
-                    .font(.body)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.blue)
-                    .cornerRadius(12)
-                }
-            }
-            
-            Text("You can customize \"Hey Siri, add an arsenal\" to work with this app")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
         }
         .padding()
-    }
-    
-    private func openSiriSettings() {
-        // Open Settings to Siri & Search
-        if let url = URL(string: "App-prefs:SIRI") {
-            UIApplication.shared.open(url)
-        } else if let url = URL(string: UIApplication.openSettingsURLString) {
-            UIApplication.shared.open(url)
-        }
     }
 }
 
