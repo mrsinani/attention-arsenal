@@ -129,4 +129,7 @@ logs/
 
 # Temporary files
 *.tmp
-*.temp 
+*.temp
+
+# API Keys and Secrets
+attention-arsenal/attention-arsenal/Secrets.swift
