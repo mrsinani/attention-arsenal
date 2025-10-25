@@ -38,18 +38,25 @@ struct AddArsenalIntent: AppIntent {
         let arsenal = arsenalManager.createArsenal(
             title: parsedArsenal.title,
             description: parsedArsenal.description,
-            dueDate: parsedArsenal.dueDate,
+            startDate: parsedArsenal.startDate,
+            endDate: parsedArsenal.endDate,
             notificationInterval: parsedArsenal.notificationInterval
         )
         
         // Generate response message
         let responseMessage: String
         if arsenal != nil {
-            if let dueDate = parsedArsenal.dueDate {
+            if let startDate = parsedArsenal.startDate {
                 let formatter = DateFormatter()
                 formatter.dateStyle = .medium
-                let dateString = formatter.string(from: dueDate)
-                responseMessage = "Added reminder for \(parsedArsenal.title) on \(dateString)"
+                let dateString = formatter.string(from: startDate)
+                
+                if let endDate = parsedArsenal.endDate {
+                    let endDateString = formatter.string(from: endDate)
+                    responseMessage = "Added reminder for \(parsedArsenal.title) from \(dateString) to \(endDateString)"
+                } else {
+                    responseMessage = "Added reminder for \(parsedArsenal.title) starting \(dateString)"
+                }
             } else {
                 responseMessage = "Added reminder: \(parsedArsenal.title)"
             }

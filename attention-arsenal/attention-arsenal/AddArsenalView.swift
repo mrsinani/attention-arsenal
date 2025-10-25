@@ -9,11 +9,17 @@ struct AddArsenalView: View {
     
     @State private var title = ""
     @State private var description = ""
-    @State private var dueDate = Date()
-    @State private var hasDueDate = false
+    @State private var startDate = Date()
+    @State private var endDate = Date().addingTimeInterval(3600) // Default to 1 hour later
+    @State private var hasDateRange = false
     @State private var selectedNotificationInterval: NotificationInterval = .none
     @State private var showingPermissionAlert = false
     @State private var isSaving = false
+    
+    // Custom duration state
+    @State private var customMinutes: Int32 = 0
+    @State private var customValue: Int32 = 1
+    @State private var customUnit: DurationUnit = .days
     
     var body: some View {
         NavigationView {
@@ -27,34 +33,25 @@ struct AddArsenalView: View {
                         .lineLimit(3...6)
                 }
                 
-                Section(header: Text("Due Date")) {
-                    Toggle("Set due date", isOn: $hasDueDate)
+                Section(header: Text("Date Range")) {
+                    Toggle("Set date range", isOn: $hasDateRange)
                     
-                    if hasDueDate {
-                        DatePicker("Due Date", selection: $dueDate, displayedComponents: [.date, .hourAndMinute])
+                    if hasDateRange {
+                        DatePicker("Start", selection: $startDate, displayedComponents: [.date, .hourAndMinute])
+                            .datePickerStyle(.compact)
+                        
+                        DatePicker("End", selection: $endDate, in: startDate..., displayedComponents: [.date, .hourAndMinute])
                             .datePickerStyle(.compact)
                     }
                 }
                 
-                Section(header: Text("Notifications")) {
-                    Picker("Reminder Interval", selection: $selectedNotificationInterval) {
-                        ForEach(NotificationInterval.allCases, id: \.self) { interval in
-                            Text(interval.displayName)
-                                .tag(interval)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    
-                    if selectedNotificationInterval != .none && !notificationManager.isAuthorized {
-                        HStack {
-                            Image(systemName: "exclamationmark.triangle")
-                                .foregroundColor(.orange)
-                            Text("Notification permission required")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
+                NotificationIntervalSection(
+                    selectedInterval: $selectedNotificationInterval,
+                    customMinutes: $customMinutes,
+                    customValue: $customValue,
+                    customUnit: $customUnit,
+                    isAuthorized: notificationManager.isAuthorized
+                )
             }
             .navigationTitle("New Arsenal")
             .navigationBarTitleDisplayMode(.inline)
@@ -98,23 +95,36 @@ struct AddArsenalView: View {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedDescription = description.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        let dueDateToUse = hasDueDate ? dueDate : nil
+        let startDateToUse = hasDateRange ? startDate : nil
+        let endDateToUse = hasDateRange ? endDate : nil
         let descriptionToUse = trimmedDescription.isEmpty ? nil : trimmedDescription
         
         // Check if notification permission is needed
-        if selectedNotificationInterval != .none && !notificationManager.isAuthorized {
+        let needsPermission = (selectedNotificationInterval == .custom && customMinutes > 0) || 
+                             (selectedNotificationInterval != .none && selectedNotificationInterval != .custom)
+        if needsPermission && !notificationManager.isAuthorized {
             showingPermissionAlert = true
             return
         }
         
         isSaving = true
         
+        // Determine the actual notification interval to use
+        let intervalToUse: Int32
+        if selectedNotificationInterval == .custom {
+            // If custom is 0, treat as no notifications
+            intervalToUse = customMinutes == 0 ? 0 : customMinutes
+        } else {
+            intervalToUse = selectedNotificationInterval.rawValue
+        }
+        
         // Use the synchronous method
         if let _ = arsenalManager.createArsenal(
             title: trimmedTitle,
             description: descriptionToUse,
-            dueDate: dueDateToUse,
-            notificationInterval: selectedNotificationInterval.rawValue
+            startDate: startDateToUse,
+            endDate: endDateToUse,
+            notificationInterval: intervalToUse
         ) {
             isSaving = false
             dismiss()

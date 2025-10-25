@@ -11,19 +11,43 @@ struct EditArsenalView: View {
     
     @State private var title: String
     @State private var description: String
-    @State private var dueDate: Date
-    @State private var hasDueDate: Bool
+    @State private var startDate: Date
+    @State private var endDate: Date
+    @State private var hasDateRange: Bool
     @State private var selectedNotificationInterval: NotificationInterval
     @State private var showingPermissionAlert = false
     @State private var isSaving = false
+    
+    // Custom duration state
+    @State private var customMinutes: Int32 = 0
+    @State private var customValue: Int32 = 1
+    @State private var customUnit: DurationUnit = .days
     
     init(arsenal: Arsenal) {
         self.arsenal = arsenal
         self._title = State(initialValue: arsenal.title ?? "")
         self._description = State(initialValue: arsenal.arsenalDescription ?? "")
-        self._dueDate = State(initialValue: arsenal.dueDate ?? Date())
-        self._hasDueDate = State(initialValue: arsenal.dueDate != nil)
-        self._selectedNotificationInterval = State(initialValue: NotificationInterval(rawValue: Int32(arsenal.notificationInterval)) ?? .none)
+        self._startDate = State(initialValue: arsenal.startDate ?? Date())
+        self._endDate = State(initialValue: arsenal.endDate ?? Date().addingTimeInterval(3600))
+        self._hasDateRange = State(initialValue: arsenal.startDate != nil || arsenal.endDate != nil)
+        
+        // Determine interval type
+        let intervalMinutes = Int32(arsenal.notificationInterval)
+        if let standardInterval = NotificationInterval(rawValue: intervalMinutes) {
+            self._selectedNotificationInterval = State(initialValue: standardInterval)
+        } else if intervalMinutes > 0 {
+            // Custom interval
+            self._selectedNotificationInterval = State(initialValue: .custom)
+            self._customMinutes = State(initialValue: intervalMinutes)
+            
+            // Parse into custom duration
+            if let custom = CustomDuration.fromMinutes(intervalMinutes) {
+                self._customValue = State(initialValue: custom.value)
+                self._customUnit = State(initialValue: custom.unit)
+            }
+        } else {
+            self._selectedNotificationInterval = State(initialValue: .none)
+        }
     }
     
     var body: some View {
@@ -38,34 +62,25 @@ struct EditArsenalView: View {
                         .lineLimit(3...6)
                 }
                 
-                Section(header: Text("Due Date")) {
-                    Toggle("Set due date", isOn: $hasDueDate)
+                Section(header: Text("Date Range")) {
+                    Toggle("Set date range", isOn: $hasDateRange)
                     
-                    if hasDueDate {
-                        DatePicker("Due Date", selection: $dueDate, displayedComponents: [.date, .hourAndMinute])
+                    if hasDateRange {
+                        DatePicker("Start", selection: $startDate, displayedComponents: [.date, .hourAndMinute])
+                            .datePickerStyle(.compact)
+                        
+                        DatePicker("End", selection: $endDate, in: startDate..., displayedComponents: [.date, .hourAndMinute])
                             .datePickerStyle(.compact)
                     }
                 }
                 
-                Section(header: Text("Notifications")) {
-                    Picker("Reminder Interval", selection: $selectedNotificationInterval) {
-                        ForEach(NotificationInterval.allCases, id: \.self) { interval in
-                            Text(interval.displayName)
-                                .tag(interval)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    
-                    if selectedNotificationInterval != .none && !notificationManager.isAuthorized {
-                        HStack {
-                            Image(systemName: "exclamationmark.triangle")
-                                .foregroundColor(.orange)
-                            Text("Notification permission required")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
+                NotificationIntervalSection(
+                    selectedInterval: $selectedNotificationInterval,
+                    customMinutes: $customMinutes,
+                    customValue: $customValue,
+                    customUnit: $customUnit,
+                    isAuthorized: notificationManager.isAuthorized
+                )
             }
             .navigationTitle("Edit Arsenal")
             .navigationBarTitleDisplayMode(.inline)
@@ -109,16 +124,28 @@ struct EditArsenalView: View {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedDescription = description.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        let dueDateToUse = hasDueDate ? dueDate : nil
+        let startDateToUse = hasDateRange ? startDate : nil
+        let endDateToUse = hasDateRange ? endDate : nil
         let descriptionToUse = trimmedDescription.isEmpty ? nil : trimmedDescription
         
         // Check if notification permission is needed
-        if selectedNotificationInterval != .none && !notificationManager.isAuthorized {
+        let needsPermission = (selectedNotificationInterval == .custom && customMinutes > 0) || 
+                             (selectedNotificationInterval != .none && selectedNotificationInterval != .custom)
+        if needsPermission && !notificationManager.isAuthorized {
             showingPermissionAlert = true
             return
         }
         
         isSaving = true
+        
+        // Determine the actual notification interval to use
+        let intervalToUse: Int32
+        if selectedNotificationInterval == .custom {
+            // If custom is 0, treat as no notifications
+            intervalToUse = customMinutes == 0 ? 0 : customMinutes
+        } else {
+            intervalToUse = selectedNotificationInterval.rawValue
+        }
         
         // Cancel existing notifications before updating
         notificationManager.cancelNotifications(for: arsenal)
@@ -128,8 +155,9 @@ struct EditArsenalView: View {
             arsenal,
             title: trimmedTitle,
             description: descriptionToUse,
-            dueDate: dueDateToUse,
-            notificationInterval: selectedNotificationInterval.rawValue
+            startDate: startDateToUse,
+            endDate: endDateToUse,
+            notificationInterval: intervalToUse
         )
         
         if success {
@@ -160,7 +188,8 @@ struct EditArsenalView: View {
     let arsenal = Arsenal(context: context)
     arsenal.title = "Sample Arsenal"
     arsenal.arsenalDescription = "Sample description"
-    arsenal.dueDate = Date()
+    arsenal.startDate = Date()
+    arsenal.endDate = Date().addingTimeInterval(3600)
     arsenal.notificationInterval = 60
     
     return EditArsenalView(arsenal: arsenal)

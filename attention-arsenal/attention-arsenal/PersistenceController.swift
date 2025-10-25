@@ -12,6 +12,8 @@ struct PersistenceController {
         sampleArsenal.title = "Sample Arsenal"
         sampleArsenal.arsenalDescription = "This is a sample arsenal for preview purposes"
         sampleArsenal.createdDate = Date()
+        sampleArsenal.startDate = Date()
+        sampleArsenal.endDate = Date().addingTimeInterval(3600)
         sampleArsenal.isCompleted = false
         sampleArsenal.notificationInterval = 30 // 30 minutes
         

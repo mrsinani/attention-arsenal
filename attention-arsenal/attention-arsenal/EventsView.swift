@@ -159,14 +159,14 @@ struct EventsList: View {
     
     // Check if an event already has a matching arsenal
     private func hasMatchingArsenal(for event: EKEvent) -> Bool {
-        // Check if any arsenal has a due date matching this event's start date
-        // (within the same minute to account for slight variations)
+        // Check if any arsenal has a start date matching this event's start date
+        // (within 1 hour tolerance to account for variations)
         return arsenals.contains { arsenal in
-            guard let dueDate = arsenal.dueDate else { return false }
+            guard let arsenalStartDate = arsenal.startDate else { return false }
             
-            // Compare dates within 1 minute tolerance
-            let timeDifference = abs(dueDate.timeIntervalSince(event.startDate))
-            return timeDifference < 60 // Within 1 minute
+            // Compare dates within 1 hour tolerance
+            let timeDifference = abs(arsenalStartDate.timeIntervalSince(event.startDate))
+            return timeDifference < 3600 // Within 1 hour
         }
     }
     
@@ -332,7 +332,8 @@ struct EventRow: View {
                     let arsenal = arsenalManager.createArsenal(
                         title: suggestion.title,
                         description: suggestion.description,
-                        dueDate: event.startDate,
+                        startDate: event.startDate,
+                        endDate: event.endDate,
                         notificationInterval: suggestion.notificationInterval
                     )
                     

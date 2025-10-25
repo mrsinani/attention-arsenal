@@ -37,12 +37,14 @@ class AIReminderService {
         
         Generate a SHORT reminder title (max 5 words), helpful description, and appropriate notification interval.
         
-        Available intervals (in minutes): 5, 15, 30, 60, 120, 240, 360, 720, 1440
+        Available intervals (in minutes): 5, 15, 30, 60, 120, 240, 360, 720, 1440, 10080 (weekly), 20160 (biweekly), 43200 (monthly)
         
         Choose interval based on:
         - Very important events (meetings, appointments): 60-120 minutes before
         - Casual events: 240-360 minutes before
-        - All-day events or far future: 720-1440 minutes before
+        - All-day events: 720-1440 minutes before
+        - Recurring/regular events: 10080 (weekly) or 20160 (biweekly)
+        - Far future events: 43200 (monthly)
         
         Respond with this exact JSON format:
         {
@@ -78,7 +80,7 @@ class AIReminderService {
             let suggestion = try JSONDecoder().decode(ReminderSuggestion.self, from: jsonData)
             
             // Validate the interval is one of our supported values
-            let validIntervals: [Int32] = [5, 15, 30, 60, 120, 240, 360, 720, 1440]
+            let validIntervals: [Int32] = [5, 15, 30, 60, 120, 240, 360, 720, 1440, 10080, 20160, 43200]
             guard validIntervals.contains(suggestion.notificationInterval) else {
                 // Default to 1 hour if invalid
                 return ReminderSuggestion(

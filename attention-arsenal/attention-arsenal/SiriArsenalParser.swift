@@ -35,7 +35,8 @@ class SiriArsenalParser {
         Extract the following:
         - A short title (max 5 words)
         - A helpful description
-        - A due date ONLY if explicitly mentioned (null otherwise)
+        - A start date ONLY if explicitly mentioned (null otherwise)
+        - An end date ONLY if explicitly mentioned (null otherwise)
         - Appropriate notification interval in minutes
         
         Date parsing rules:
@@ -43,19 +44,22 @@ class SiriArsenalParser {
         - "next Friday", "this weekend" = calculate specific date
         - "in 3 days", "in 2 weeks" = calculate from today
         - "January 15", "Dec 25th" = specific date this year or next if passed
-        - NO date mentioned = null
+        - NO date mentioned = null for both dates
         
-        Notification intervals (in minutes): 5, 15, 30, 60, 120, 240, 360, 720, 1440
+        Notification intervals (in minutes): 5, 15, 30, 60, 120, 240, 360, 720, 1440, 10080 (weekly), 20160 (biweekly), 43200 (monthly)
         Choose based on urgency:
         - Urgent/Soon: 30-60
         - This week: 120-240
-        - Future: 360-1440
+        - Near future: 360-1440
+        - Regular reminders: 10080 (weekly) or 20160 (biweekly)
+        - Long-term: 43200 (monthly)
         
         Respond with this EXACT JSON format:
         {
           "title": "short title here",
           "description": "helpful description",
-          "dueDate": "2025-01-25" or null,
+          "startDate": "2025-01-25" or null,
+          "endDate": "2025-01-25" or null,
           "notificationInterval": 240
         }
         
@@ -107,7 +111,7 @@ class SiriArsenalParser {
             let parsed = try decoder.decode(ParsedArsenalResponse.self, from: jsonData)
             
             // Validate notification interval
-            let validIntervals: [Int32] = [5, 15, 30, 60, 120, 240, 360, 720, 1440]
+            let validIntervals: [Int32] = [5, 15, 30, 60, 120, 240, 360, 720, 1440, 10080, 20160, 43200]
             let interval = validIntervals.contains(parsed.notificationInterval) 
                 ? parsed.notificationInterval 
                 : 240 // Default to 4 hours
@@ -115,7 +119,8 @@ class SiriArsenalParser {
             return ParsedArsenal(
                 title: parsed.title,
                 description: parsed.description,
-                dueDate: parsed.dueDate,
+                startDate: parsed.startDate,
+                endDate: parsed.endDate,
                 notificationInterval: interval
             )
         } catch {
@@ -132,7 +137,8 @@ class SiriArsenalParser {
         return ParsedArsenal(
             title: title,
             description: description,
-            dueDate: nil,
+            startDate: nil,
+            endDate: nil,
             notificationInterval: 240
         )
     }
@@ -143,14 +149,16 @@ class SiriArsenalParser {
 struct ParsedArsenal {
     let title: String
     let description: String
-    let dueDate: Date?
+    let startDate: Date?
+    let endDate: Date?
     let notificationInterval: Int32
 }
 
 private struct ParsedArsenalResponse: Codable {
     let title: String
     let description: String
-    let dueDate: Date?
+    let startDate: Date?
+    let endDate: Date?
     let notificationInterval: Int32
 }
 

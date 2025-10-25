@@ -7,8 +7,7 @@ struct ContentView: View {
     @EnvironmentObject var notificationManager: NotificationManager
     @State private var showingAddArsenal = false
     @State private var showingNotificationPermissionAlert = false
-    @State private var showingSiriSetup = false
-    @AppStorage("hasSeenSiriSetup") private var hasSeenSiriSetup = false
+    @State private var showingSettings = false
     
     var body: some View {
         NavigationView {
@@ -16,6 +15,16 @@ struct ContentView: View {
                 .navigationTitle("Attention Arsenal")
                 .navigationBarTitleDisplayMode(.large)
                 .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button(action: {
+                            showingSettings = true
+                        }) {
+                            Image(systemName: "gearshape")
+                                .font(.title2)
+                                .foregroundColor(.primary)
+                        }
+                    }
+                    
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button(action: {
                             showingAddArsenal = true
@@ -36,6 +45,9 @@ struct ContentView: View {
                     AddArsenalView()
                         .environment(\.managedObjectContext, viewContext)
                 }
+                .sheet(isPresented: $showingSettings) {
+                    SettingsView()
+                }
         }
         .navigationViewStyle(.stack)
         .environmentObject(arsenalManager)
@@ -52,29 +64,6 @@ struct ContentView: View {
             Button("Not Now", role: .cancel) { }
         } message: {
             Text("Get reminded about your arsenals with customizable notification intervals.")
-        }
-        .sheet(isPresented: $showingSiriSetup) {
-            NavigationView {
-                SiriSetupView()
-                    .navigationTitle("Siri Setup")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            Button("Done") {
-                                showingSiriSetup = false
-                                hasSeenSiriSetup = true
-                            }
-                        }
-                    }
-            }
-        }
-        .onAppear {
-            // Show Siri setup on first launch
-            if !hasSeenSiriSetup {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                    showingSiriSetup = true
-                }
-            }
         }
     }
     
@@ -195,8 +184,21 @@ struct ArsenalRowView: View {
                         .lineLimit(2)
                 }
                 
-                if let dueDate = arsenal.dueDate {
-                    Text(dueDate, style: .date)
+                // Display date range if available
+                if let startDate = arsenal.startDate, let endDate = arsenal.endDate {
+                    HStack(spacing: 4) {
+                        Text(startDate, style: .date)
+                        Text("—")
+                        Text(endDate, style: .date)
+                    }
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                } else if let startDate = arsenal.startDate {
+                    Text(startDate, style: .date)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                } else if let endDate = arsenal.endDate {
+                    Text("Until: \(endDate, style: .date)")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
