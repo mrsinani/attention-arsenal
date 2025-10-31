@@ -28,6 +28,15 @@ This privacy policy applies to the Attention Arsenal app (hereby referred to as 
 - Voice commands are converted to text and sent to OpenAI's API for natural language processing
 - We do not store or have access to your voice recordings
 
+**Home Screen Widgets:**
+
+- The Application offers optional home screen widgets that display your arsenals
+- Widget data is stored locally on your device using App Groups (shared storage between the app and widget)
+- Widgets display your arsenal titles, descriptions, and dates on your home screen
+- **Privacy Note**: Widget content is visible to anyone who can see your device's home screen
+- All widget data remains on your device and is never transmitted to external servers
+- You can remove widgets at any time by removing them from your home screen
+
 ### Third-Party Services
 
 **OpenAI API Integration:**

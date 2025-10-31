@@ -1,6 +1,7 @@
 import CoreData
 import Foundation
 import UserNotifications
+import WidgetKit
 
 // MARK: - Notification Interval Enum
 enum NotificationInterval: Int32, CaseIterable {
@@ -148,6 +149,9 @@ class ArsenalManager: ObservableObject {
                 notificationManager.scheduleNotification(for: arsenal)
             }
             
+            // Reload widget to show new arsenal
+            WidgetCenter.shared.reloadAllTimelines()
+            
             return arsenal
         } catch {
             print("Error saving context: \(error)")
@@ -210,6 +214,10 @@ class ArsenalManager: ObservableObject {
         
         do {
             try context.save()
+            
+            // Reload widget to reflect changes
+            WidgetCenter.shared.reloadAllTimelines()
+            
             return true
         } catch {
             print("Error saving context: \(error)")
@@ -230,6 +238,9 @@ class ArsenalManager: ObservableObject {
                 notificationManager.scheduleNotification(for: arsenal)
             }
             
+            // Reload widget to update completion status
+            WidgetCenter.shared.reloadAllTimelines()
+            
             return true
         } catch {
             print("Error saving context: \(error)")
@@ -245,6 +256,10 @@ class ArsenalManager: ObservableObject {
         
         do {
             try viewContext.save()
+            
+            // Reload widget to remove deleted arsenal
+            WidgetCenter.shared.reloadAllTimelines()
+            
             return true
         } catch {
             print("Error saving context: \(error)")
@@ -259,6 +274,10 @@ class ArsenalManager: ObservableObject {
         do {
             try viewContext.execute(deleteRequest)
             try viewContext.save()
+            
+            // Reload widget to clear all arsenals
+            WidgetCenter.shared.reloadAllTimelines()
+            
             return true
         } catch {
             print("Error deleting all arsenals: \(error)")

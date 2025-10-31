@@ -35,16 +35,19 @@ class SiriArsenalParser {
         Extract the following:
         - A short title (max 5 words)
         - A helpful description
-        - A start date ONLY if explicitly mentioned (null otherwise)
-        - An end date ONLY if explicitly mentioned (null otherwise)
+        - An end date ONLY if a specific date/event is mentioned (null otherwise)
         - Appropriate notification interval in minutes
         
-        Date parsing rules:
+        Date parsing rules for END DATE:
         - "tomorrow" = tomorrow's date
         - "next Friday", "this weekend" = calculate specific date
         - "in 3 days", "in 2 weeks" = calculate from today
         - "January 15", "Dec 25th" = specific date this year or next if passed
-        - NO date mentioned = null for both dates
+        - "Halloween" = October 31
+        - "Christmas" = December 25
+        - NO specific date mentioned = null
+        
+        IMPORTANT: The start date will always be today. Only extract the END date (when the event actually happens).
         
         Notification intervals (in minutes): 5, 15, 30, 60, 120, 240, 360, 720, 1440, 10080 (weekly), 20160 (biweekly), 43200 (monthly)
         Choose based on urgency:
@@ -58,7 +61,6 @@ class SiriArsenalParser {
         {
           "title": "short title here",
           "description": "helpful description",
-          "startDate": "2025-01-25" or null,
           "endDate": "2025-01-25" or null,
           "notificationInterval": 240
         }
@@ -116,10 +118,13 @@ class SiriArsenalParser {
                 ? parsed.notificationInterval 
                 : 240 // Default to 4 hours
             
+            // Start date is always today
+            let today = Date()
+            
             return ParsedArsenal(
                 title: parsed.title,
                 description: parsed.description,
-                startDate: parsed.startDate,
+                startDate: today,
                 endDate: parsed.endDate,
                 notificationInterval: interval
             )
@@ -134,10 +139,13 @@ class SiriArsenalParser {
         let title = String(input.prefix(50))
         let description = "Voice reminder: \(input)"
         
+        // Start date is always today
+        let today = Date()
+        
         return ParsedArsenal(
             title: title,
             description: description,
-            startDate: nil,
+            startDate: today,
             endDate: nil,
             notificationInterval: 240
         )
@@ -157,7 +165,6 @@ struct ParsedArsenal {
 private struct ParsedArsenalResponse: Codable {
     let title: String
     let description: String
-    let startDate: Date?
     let endDate: Date?
     let notificationInterval: Int32
 }

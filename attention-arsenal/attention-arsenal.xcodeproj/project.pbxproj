@@ -6,6 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		B15C23FB2EB1BBF600EF30AB /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B15C23FA2EB1BBF600EF30AB /* WidgetKit.framework */; };
+		B15C23FD2EB1BBF600EF30AB /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B15C23FC2EB1BBF600EF30AB /* SwiftUI.framework */; };
+		B15C240E2EB1BBF700EF30AB /* AttentionArsenalWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B15C23F82EB1BBF600EF30AB /* AttentionArsenalWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		B14E772F2E3590A60052BB04 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,15 +27,55 @@
 			remoteGlobalIDString = B14E771F2E3590A50052BB04;
 			remoteInfo = "attention-arsenal";
 		};
+		B15C240C2EB1BBF700EF30AB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B14E77182E3590A50052BB04 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B15C23F72EB1BBF600EF30AB;
+			remoteInfo = AttentionArsenalWidgetExtension;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		B15C24132EB1BBF700EF30AB /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B15C240E2EB1BBF700EF30AB /* AttentionArsenalWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		B14E77202E3590A50052BB04 /* attention-arsenal.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "attention-arsenal.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		B14E772E2E3590A60052BB04 /* attention-arsenalTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "attention-arsenalTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		B14E77382E3590A60052BB04 /* attention-arsenalUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "attention-arsenalUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B15C23F82EB1BBF600EF30AB /* AttentionArsenalWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AttentionArsenalWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B15C23FA2EB1BBF600EF30AB /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		B15C23FC2EB1BBF600EF30AB /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		B15C24152EB1BC7800EF30AB /* AttentionArsenalWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AttentionArsenalWidgetExtension.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		B15C24122EB1BBF700EF30AB /* Exceptions for "AttentionArsenalWidget" folder in "AttentionArsenalWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = B15C23F72EB1BBF600EF30AB /* AttentionArsenalWidgetExtension */;
+		};
+		B15C24192EB1BD3000EF30AB /* Exceptions for "attention-arsenal" folder in "AttentionArsenalWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				AttentionArsenal.xcdatamodeld,
+				PersistenceController.swift,
+			);
+			target = B15C23F72EB1BBF600EF30AB /* AttentionArsenalWidgetExtension */;
+		};
 		B1D4EAB12EA618BE0042AC69 /* Exceptions for "attention-arsenal" folder in "attention-arsenal" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -44,6 +90,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				B1D4EAB12EA618BE0042AC69 /* Exceptions for "attention-arsenal" folder in "attention-arsenal" target */,
+				B15C24192EB1BD3000EF30AB /* Exceptions for "attention-arsenal" folder in "AttentionArsenalWidgetExtension" target */,
 			);
 			path = "attention-arsenal";
 			sourceTree = "<group>";
@@ -56,6 +103,14 @@
 		B14E773B2E3590A60052BB04 /* attention-arsenalUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "attention-arsenalUITests";
+			sourceTree = "<group>";
+		};
+		B15C23FE2EB1BBF600EF30AB /* AttentionArsenalWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B15C24122EB1BBF700EF30AB /* Exceptions for "AttentionArsenalWidget" folder in "AttentionArsenalWidgetExtension" target */,
+			);
+			path = AttentionArsenalWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -82,15 +137,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B15C23F52EB1BBF600EF30AB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B15C23FD2EB1BBF600EF30AB /* SwiftUI.framework in Frameworks */,
+				B15C23FB2EB1BBF600EF30AB /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		B14E77172E3590A50052BB04 = {
 			isa = PBXGroup;
 			children = (
+				B15C24152EB1BC7800EF30AB /* AttentionArsenalWidgetExtension.entitlements */,
 				B14E77222E3590A50052BB04 /* attention-arsenal */,
 				B14E77312E3590A60052BB04 /* attention-arsenalTests */,
 				B14E773B2E3590A60052BB04 /* attention-arsenalUITests */,
+				B15C23FE2EB1BBF600EF30AB /* AttentionArsenalWidget */,
+				B15C23F92EB1BBF600EF30AB /* Frameworks */,
 				B14E77212E3590A50052BB04 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -101,8 +168,18 @@
 				B14E77202E3590A50052BB04 /* attention-arsenal.app */,
 				B14E772E2E3590A60052BB04 /* attention-arsenalTests.xctest */,
 				B14E77382E3590A60052BB04 /* attention-arsenalUITests.xctest */,
+				B15C23F82EB1BBF600EF30AB /* AttentionArsenalWidgetExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		B15C23F92EB1BBF600EF30AB /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				B15C23FA2EB1BBF600EF30AB /* WidgetKit.framework */,
+				B15C23FC2EB1BBF600EF30AB /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -115,10 +192,12 @@
 				B14E771C2E3590A50052BB04 /* Sources */,
 				B14E771D2E3590A50052BB04 /* Frameworks */,
 				B14E771E2E3590A50052BB04 /* Resources */,
+				B15C24132EB1BBF700EF30AB /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				B15C240D2EB1BBF700EF30AB /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				B14E77222E3590A50052BB04 /* attention-arsenal */,
@@ -176,6 +255,28 @@
 			productReference = B14E77382E3590A60052BB04 /* attention-arsenalUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		B15C23F72EB1BBF600EF30AB /* AttentionArsenalWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B15C240F2EB1BBF700EF30AB /* Build configuration list for PBXNativeTarget "AttentionArsenalWidgetExtension" */;
+			buildPhases = (
+				B15C23F42EB1BBF600EF30AB /* Sources */,
+				B15C23F52EB1BBF600EF30AB /* Frameworks */,
+				B15C23F62EB1BBF600EF30AB /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				B15C23FE2EB1BBF600EF30AB /* AttentionArsenalWidget */,
+			);
+			name = AttentionArsenalWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = AttentionArsenalWidgetExtension;
+			productReference = B15C23F82EB1BBF600EF30AB /* AttentionArsenalWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -197,6 +298,9 @@
 						CreatedOnToolsVersion = 16.3;
 						TestTargetID = B14E771F2E3590A50052BB04;
 					};
+					B15C23F72EB1BBF600EF30AB = {
+						CreatedOnToolsVersion = 16.3;
+					};
 				};
 			};
 			buildConfigurationList = B14E771B2E3590A50052BB04 /* Build configuration list for PBXProject "attention-arsenal" */;
@@ -216,6 +320,7 @@
 				B14E771F2E3590A50052BB04 /* attention-arsenal */,
 				B14E772D2E3590A60052BB04 /* attention-arsenalTests */,
 				B14E77372E3590A60052BB04 /* attention-arsenalUITests */,
+				B15C23F72EB1BBF600EF30AB /* AttentionArsenalWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -236,6 +341,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		B14E77362E3590A60052BB04 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B15C23F62EB1BBF600EF30AB /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -266,6 +378,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B15C23F42EB1BBF600EF30AB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -278,6 +397,11 @@
 			isa = PBXTargetDependency;
 			target = B14E771F2E3590A50052BB04 /* attention-arsenal */;
 			targetProxy = B14E77392E3590A60052BB04 /* PBXContainerItemProxy */;
+		};
+		B15C240D2EB1BBF700EF30AB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B15C23F72EB1BBF600EF30AB /* AttentionArsenalWidgetExtension */;
+			targetProxy = B15C240C2EB1BBF700EF30AB /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -407,7 +531,7 @@
 				CODE_SIGN_ENTITLEMENTS = "attention-arsenal/attention_arsenal.entitlements";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 2M75FL3Z77;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -430,7 +554,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.3;
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "main.attention-arsenal";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -452,7 +576,7 @@
 				CODE_SIGN_ENTITLEMENTS = "attention-arsenal/attention_arsenal.entitlements";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 2M75FL3Z77;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -475,7 +599,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.3;
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "main.attention-arsenal";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -493,12 +617,12 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = WC6K89GLMJ;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
 				MACOSX_DEPLOYMENT_TARGET = 15.3;
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "main.attention-arsenalTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -516,12 +640,12 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = WC6K89GLMJ;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
 				MACOSX_DEPLOYMENT_TARGET = 15.3;
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "main.attention-arsenalTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -538,12 +662,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = WC6K89GLMJ;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
 				MACOSX_DEPLOYMENT_TARGET = 15.3;
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "main.attention-arsenalUITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -560,12 +684,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = WC6K89GLMJ;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
 				MACOSX_DEPLOYMENT_TARGET = 15.3;
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "main.attention-arsenalUITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -575,6 +699,67 @@
 				TARGETED_DEVICE_FAMILY = "1,2,7";
 				TEST_TARGET_NAME = "attention-arsenal";
 				XROS_DEPLOYMENT_TARGET = 2.4;
+			};
+			name = Release;
+		};
+		B15C24102EB1BBF700EF30AB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = AttentionArsenalWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = 2M75FL3Z77;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AttentionArsenalWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = AttentionArsenalWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.3;
+				PRODUCT_BUNDLE_IDENTIFIER = "main.attention-arsenal.AttentionArsenalWidget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B15C24112EB1BBF700EF30AB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = AttentionArsenalWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = 2M75FL3Z77;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AttentionArsenalWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = AttentionArsenalWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.3;
+				PRODUCT_BUNDLE_IDENTIFIER = "main.attention-arsenal.AttentionArsenalWidget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
 		};
@@ -613,6 +798,15 @@
 			buildConfigurations = (
 				B14E77492E3590A60052BB04 /* Debug */,
 				B14E774A2E3590A60052BB04 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B15C240F2EB1BBF700EF30AB /* Build configuration list for PBXNativeTarget "AttentionArsenalWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B15C24102EB1BBF700EF30AB /* Debug */,
+				B15C24112EB1BBF700EF30AB /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

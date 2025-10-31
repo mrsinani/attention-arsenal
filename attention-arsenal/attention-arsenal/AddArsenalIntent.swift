@@ -46,17 +46,11 @@ struct AddArsenalIntent: AppIntent {
         // Generate response message
         let responseMessage: String
         if arsenal != nil {
-            if let startDate = parsedArsenal.startDate {
+            if let endDate = parsedArsenal.endDate {
                 let formatter = DateFormatter()
                 formatter.dateStyle = .medium
-                let dateString = formatter.string(from: startDate)
-                
-                if let endDate = parsedArsenal.endDate {
-                    let endDateString = formatter.string(from: endDate)
-                    responseMessage = "Added reminder for \(parsedArsenal.title) from \(dateString) to \(endDateString)"
-                } else {
-                    responseMessage = "Added reminder for \(parsedArsenal.title) starting \(dateString)"
-                }
+                let endDateString = formatter.string(from: endDate)
+                responseMessage = "Added reminder for \(parsedArsenal.title) until \(endDateString)"
             } else {
                 responseMessage = "Added reminder: \(parsedArsenal.title)"
             }

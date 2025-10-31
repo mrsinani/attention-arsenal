@@ -23,10 +23,16 @@ struct EditArsenalView: View {
     @State private var customValue: Int32 = 1
     @State private var customUnit: DurationUnit = .days
     
+    // Character limits
+    private let titleCharacterLimit = 50
+    private let descriptionCharacterLimit = 200
+    
     init(arsenal: Arsenal) {
         self.arsenal = arsenal
-        self._title = State(initialValue: arsenal.title ?? "")
-        self._description = State(initialValue: arsenal.arsenalDescription ?? "")
+        let titleValue = arsenal.title ?? ""
+        let descriptionValue = arsenal.arsenalDescription ?? ""
+        self._title = State(initialValue: String(titleValue.prefix(50)))
+        self._description = State(initialValue: String(descriptionValue.prefix(200)))
         self._startDate = State(initialValue: arsenal.startDate ?? Date())
         self._endDate = State(initialValue: arsenal.endDate ?? Date().addingTimeInterval(3600))
         self._hasDateRange = State(initialValue: arsenal.startDate != nil || arsenal.endDate != nil)
@@ -54,12 +60,34 @@ struct EditArsenalView: View {
         NavigationView {
             Form {
                 Section(header: Text("Arsenal Details")) {
-                    TextField("Title", text: $title)
-                        .font(.body)
+                    VStack(alignment: .leading, spacing: 4) {
+                        TextField("Title", text: $title)
+                            .font(.body)
+                            .onChange(of: title) { oldValue, newValue in
+                                if newValue.count > titleCharacterLimit {
+                                    title = String(newValue.prefix(titleCharacterLimit))
+                                }
+                            }
+                        
+                        Text("\(title.count)/\(titleCharacterLimit)")
+                            .font(.caption2)
+                            .foregroundColor(title.count >= titleCharacterLimit ? .red : .secondary)
+                    }
                     
-                    TextField("Description (optional)", text: $description, axis: .vertical)
-                        .font(.body)
-                        .lineLimit(3...6)
+                    VStack(alignment: .leading, spacing: 4) {
+                        TextField("Description (optional)", text: $description, axis: .vertical)
+                            .font(.body)
+                            .lineLimit(3...6)
+                            .onChange(of: description) { oldValue, newValue in
+                                if newValue.count > descriptionCharacterLimit {
+                                    description = String(newValue.prefix(descriptionCharacterLimit))
+                                }
+                            }
+                        
+                        Text("\(description.count)/\(descriptionCharacterLimit)")
+                            .font(.caption2)
+                            .foregroundColor(description.count >= descriptionCharacterLimit ? .red : .secondary)
+                    }
                 }
                 
                 Section(header: Text("Date Range")) {

@@ -159,13 +159,13 @@ struct EventsList: View {
     
     // Check if an event already has a matching arsenal
     private func hasMatchingArsenal(for event: EKEvent) -> Bool {
-        // Check if any arsenal has a start date matching this event's start date
+        // Check if any arsenal has an end date matching this event's end date
         // (within 1 hour tolerance to account for variations)
         return arsenals.contains { arsenal in
-            guard let arsenalStartDate = arsenal.startDate else { return false }
+            guard let arsenalEndDate = arsenal.endDate else { return false }
             
-            // Compare dates within 1 hour tolerance
-            let timeDifference = abs(arsenalStartDate.timeIntervalSince(event.startDate))
+            // Compare end dates within 1 hour tolerance
+            let timeDifference = abs(arsenalEndDate.timeIntervalSince(event.endDate))
             return timeDifference < 3600 // Within 1 hour
         }
     }
@@ -329,10 +329,12 @@ struct EventRow: View {
                 
                 // Create the arsenal with suggested details
                 await MainActor.run {
+                    // Start date is always today (when reminder is created)
+                    // End date is when the event actually happens
                     let arsenal = arsenalManager.createArsenal(
                         title: suggestion.title,
                         description: suggestion.description,
-                        startDate: event.startDate,
+                        startDate: Date(),
                         endDate: event.endDate,
                         notificationInterval: suggestion.notificationInterval
                     )

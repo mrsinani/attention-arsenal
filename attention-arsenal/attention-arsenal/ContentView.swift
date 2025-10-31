@@ -1,5 +1,6 @@
 import SwiftUI
 import CoreData
+import WidgetKit
 
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
@@ -113,6 +114,7 @@ struct ArsenalListView: View {
                         .tint(.blue)
                     }
                 }
+                .onMove(perform: moveArsenals)
             }
         }
         .listStyle(PlainListStyle())
@@ -139,6 +141,32 @@ struct ArsenalListView: View {
                 .environment(\.managedObjectContext, viewContext)
         }
         .id(refreshTrigger) // Force view refresh when trigger changes
+    }
+    
+    // MARK: - Drag to Reorder
+    private func moveArsenals(from source: IndexSet, to destination: Int) {
+        // Convert FetchedResults to array for manipulation
+        var arsenalsArray = Array(arsenals)
+        arsenalsArray.move(fromOffsets: source, toOffset: destination)
+        
+        // Update createdDate to maintain the new order
+        // Since we sort by createdDate descending, the first item should have the latest date
+        let now = Date()
+        for (index, arsenal) in arsenalsArray.enumerated() {
+            // Subtract seconds based on index to maintain order
+            arsenal.createdDate = now.addingTimeInterval(-Double(index))
+        }
+        
+        // Save the context
+        do {
+            try viewContext.save()
+            refreshTrigger = UUID()
+            
+            // Reload widget to show new order
+            WidgetCenter.shared.reloadAllTimelines()
+        } catch {
+            print("Error reordering arsenals: \(error)")
+        }
     }
 }
 
