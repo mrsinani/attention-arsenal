@@ -15,6 +15,15 @@ struct SettingsView: View {
                             Text("How to Setup Siri Commands")
                         }
                     }
+                    
+                    NavigationLink(destination: WidgetSetupHelpView()) {
+                        HStack {
+                            Image(systemName: "square.grid.2x2.fill")
+                                .foregroundColor(.purple)
+                                .frame(width: 30)
+                            Text("How to Add Widgets")
+                        }
+                    }
                 }
                 
                 Section(header: Text("About")) {
@@ -103,6 +112,99 @@ struct SiriCommandsHelpView: View {
     }
 }
 
+struct WidgetSetupHelpView: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Adding Widgets to Home Screen")
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .padding(.bottom, 10)
+                
+                VStack(alignment: .leading, spacing: 15) {
+                    Text("Keep your arsenals visible on your Home Screen with widgets.")
+                        .font(.body)
+                    
+                    Divider()
+                        .padding(.vertical, 10)
+                    
+                    Text("How to Add a Widget")
+                        .font(.headline)
+                        .padding(.top, 5)
+                    
+                    VStack(alignment: .leading, spacing: 12) {
+                        InstructionStep(number: 1, text: "Touch and hold an empty area on your Home Screen until the apps start to jiggle")
+                        InstructionStep(number: 2, text: "Tap the + button in the top left corner")
+                        InstructionStep(number: 3, text: "Search for \"Attention Arsenal\" in the widget gallery")
+                        InstructionStep(number: 4, text: "Tap on the Attention Arsenal widget")
+                        InstructionStep(number: 5, text: "Swipe left or right to choose a widget size")
+                        InstructionStep(number: 6, text: "Tap \"Add Widget\"")
+                        InstructionStep(number: 7, text: "Drag the widget to your desired location")
+                        InstructionStep(number: 8, text: "Tap \"Done\" in the top right corner")
+                    }
+                    
+                    Divider()
+                        .padding(.vertical, 10)
+                    
+                    Text("Widget Sizes")
+                        .font(.headline)
+                    
+                    VStack(alignment: .leading, spacing: 10) {
+                        WidgetSizeInfo(size: "Small", description: "Shows your next upcoming arsenal at a glance")
+                        WidgetSizeInfo(size: "Medium", description: "Displays up to 2 arsenals with descriptions and dates")
+                    }
+                    .padding(.leading, 10)
+                    
+                    Divider()
+                        .padding(.vertical, 10)
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Tips")
+                            .font(.headline)
+                        
+                        TipView(icon: "hand.tap.fill", text: "Tap the widget to open the app directly")
+                        TipView(icon: "arrow.clockwise", text: "Widgets update automatically throughout the day")
+                        TipView(icon: "square.stack.3d.up.fill", text: "You can stack widgets by dragging one on top of another")
+                        TipView(icon: "minus.circle", text: "To remove a widget, long press it and tap \"Remove Widget\"")
+                    }
+                    .padding(.top, 5)
+                }
+                
+                Spacer()
+            }
+            .padding()
+        }
+        .navigationTitle("Add Widgets")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct WidgetSizeInfo: View {
+    let size: String
+    let description: String
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "square.grid.2x2")
+                .foregroundColor(.purple)
+                .frame(width: 20)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(size)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                
+                Text(description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+        }
+        .padding(.vertical, 4)
+    }
+}
+
 struct ExampleCommandView: View {
     let command: String
     
@@ -177,6 +279,12 @@ struct TipView: View {
 #Preview("Siri Help") {
     NavigationView {
         SiriCommandsHelpView()
+    }
+}
+
+#Preview("Widget Help") {
+    NavigationView {
+        WidgetSetupHelpView()
     }
 }
 

@@ -267,6 +267,28 @@ class ArsenalManager: ObservableObject {
         }
     }
     
+    func deleteArsenals(_ arsenals: [Arsenal]) -> Bool {
+        guard !arsenals.isEmpty else { return true }
+        
+        // Cancel notifications and delete each arsenal
+        for arsenal in arsenals {
+            notificationManager.cancelNotifications(for: arsenal)
+            viewContext.delete(arsenal)
+        }
+        
+        do {
+            try viewContext.save()
+            
+            // Reload widget to remove deleted arsenals
+            WidgetCenter.shared.reloadAllTimelines()
+            
+            return true
+        } catch {
+            print("Error deleting arsenals: \(error)")
+            return false
+        }
+    }
+    
     func deleteAllArsenals() -> Bool {
         let request: NSFetchRequest<NSFetchRequestResult> = Arsenal.fetchRequest()
         let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
