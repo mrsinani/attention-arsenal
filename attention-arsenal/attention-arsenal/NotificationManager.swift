@@ -6,9 +6,17 @@ class NotificationManager: ObservableObject {
     static let shared = NotificationManager()
     
     @Published var isAuthorized = false
+    @Published var testModeEnabled = false
+    @Published var testOffsetMinutes: Int = 1 // Minutes from now to schedule test notifications
     
     private init() {
         checkAuthorizationStatus()
+        // Load test mode setting from UserDefaults
+        testModeEnabled = UserDefaults.standard.bool(forKey: "notificationTestMode")
+        testOffsetMinutes = UserDefaults.standard.integer(forKey: "notificationTestOffset")
+        if testOffsetMinutes == 0 {
+            testOffsetMinutes = 1 // Default to 1 minute
+        }
     }
     
     // MARK: - Permission Management
@@ -35,6 +43,20 @@ class NotificationManager: ObservableObject {
                 self.isAuthorized = settings.authorizationStatus == .authorized
             }
         }
+    }
+    
+    func setTestMode(enabled: Bool) {
+        testModeEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: "notificationTestMode")
+        // Note: Existing notifications won't be rescheduled automatically
+        // User needs to edit and save arsenals to reschedule with new test mode
+    }
+    
+    func setTestOffset(minutes: Int) {
+        testOffsetMinutes = minutes
+        UserDefaults.standard.set(minutes, forKey: "notificationTestOffset")
+        // Note: Existing notifications won't be rescheduled automatically
+        // User needs to edit and save arsenals to reschedule with new offset
     }
     
     // MARK: - Notification Scheduling
@@ -73,6 +95,11 @@ class NotificationManager: ObservableObject {
     }
     
     private func createTriggers(for config: IntervalConfiguration, identifier: String) -> [UNNotificationTrigger] {
+        // If test mode is enabled, use time interval triggers for quick testing
+        if testModeEnabled {
+            return createTestTriggers(for: config)
+        }
+        
         switch config.type {
         case .none:
             return []
@@ -93,9 +120,12 @@ class NotificationManager: ObservableObject {
             
             return selectedDays.map { weekday in
                 var dateComponents = DateComponents()
-                dateComponents.weekday = weekday.calendarWeekday
+                dateComponents.weekday = weekday.calendarWeekday // 1=Sunday, 7=Saturday
                 dateComponents.hour = Int(config.hour)
                 dateComponents.minute = Int(config.minute)
+                
+                // Log for debugging
+                print("Scheduled daily notification for \(weekday.fullName) at \(config.hour):\(String(format: "%02d", config.minute))")
                 
                 return UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
             }
@@ -105,14 +135,15 @@ class NotificationManager: ObservableObject {
             let selectedDays = config.days.selectedDays
             guard !selectedDays.isEmpty else { return [] }
             
-            // For weekly, we need to calculate the next occurrence based on the week interval
-            // Since UNCalendarNotificationTrigger doesn't support "every N weeks" directly,
-            // we'll schedule for each week and handle the interval in the date calculation
+            // Weekly is simplified to "every week" - fires every week on selected days
             return selectedDays.map { weekday in
                 var dateComponents = DateComponents()
-                dateComponents.weekday = weekday.calendarWeekday
+                dateComponents.weekday = weekday.calendarWeekday // 1=Sunday, 7=Saturday
                 dateComponents.hour = Int(config.hour)
                 dateComponents.minute = Int(config.minute)
+                
+                // Log for debugging
+                print("Scheduled weekly notification for \(weekday.fullName) at \(config.hour):\(String(format: "%02d", config.minute))")
                 
                 return UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
             }
@@ -128,7 +159,55 @@ class NotificationManager: ObservableObject {
                 dateComponents.hour = Int(config.hour)
                 dateComponents.minute = Int(config.minute)
                 
-                return UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
+                // Note: UNCalendarNotificationTrigger handles edge cases:
+                // - If day 31 is selected but month has 30 days, it fires on the 30th
+                // - If day 29-31 is selected in February, it fires on Feb 28/29 (leap year)
+                // - This is the expected iOS behavior
+                let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
+                
+                // Log for debugging
+                print("Scheduled monthly notification for day \(day) at \(config.hour):\(String(format: "%02d", config.minute))")
+                
+                return trigger
+            }
+        }
+    }
+    
+    /// Create test triggers that fire quickly for testing purposes
+    private func createTestTriggers(for config: IntervalConfiguration) -> [UNNotificationTrigger] {
+        switch config.type {
+        case .none:
+            return []
+            
+        case .minutes, .hours:
+            // Use actual intervals for minutes/hours even in test mode
+            guard let timeInterval = config.timeIntervalInSeconds else { return [] }
+            let trigger = UNTimeIntervalNotificationTrigger(
+                timeInterval: timeInterval,
+                repeats: true
+            )
+            return [trigger]
+            
+        case .daily, .weekly, .monthly:
+            // For daily/weekly/monthly, schedule to fire in testOffsetMinutes
+            // Create one trigger per selected day/weekday/monthday
+            let count: Int
+            switch config.type {
+            case .daily, .weekly:
+                count = config.days.selectedDays.count
+            case .monthly:
+                count = config.monthDays.selectedDays.count
+            default:
+                count = 1
+            }
+            
+            // Create triggers with small delays between them (1 second apart) so they don't all fire at once
+            return (0..<count).map { index in
+                let timeInterval = TimeInterval(testOffsetMinutes * 60) + TimeInterval(index)
+                return UNTimeIntervalNotificationTrigger(
+                    timeInterval: timeInterval,
+                    repeats: false // Don't repeat in test mode
+                )
             }
         }
     }
