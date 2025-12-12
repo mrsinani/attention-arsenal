@@ -43,8 +43,8 @@ class AIReminderService {
         - Very important events (meetings, appointments): 60-120 minutes before
         - Casual events: 240-360 minutes before
         - All-day events: 720-1440 minutes before
-        - Recurring/regular events: 10080 (weekly) or 20160 (biweekly)
-        - Far future events: 43200 (monthly)
+        - Recurring/regular events or far future events you want to be reminded about regularly: 10080 (weekly)
+        - Very long-term events (months away): 20160 (biweekly) or 43200 (monthly)
         
         Respond with this exact JSON format:
         {

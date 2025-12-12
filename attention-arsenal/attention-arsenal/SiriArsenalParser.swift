@@ -54,8 +54,8 @@ class SiriArsenalParser {
         - Urgent/Soon: 30-60
         - This week: 120-240
         - Near future: 360-1440
-        - Regular reminders: 10080 (weekly) or 20160 (biweekly)
-        - Long-term: 43200 (monthly)
+        - Regular reminders or far future events you want to be reminded about regularly: 10080 (weekly)
+        - Very long-term (months away): 20160 (biweekly) or 43200 (monthly)
         
         Respond with this EXACT JSON format:
         {
