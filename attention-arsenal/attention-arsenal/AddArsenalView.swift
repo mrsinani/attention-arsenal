@@ -9,17 +9,9 @@ struct AddArsenalView: View {
     
     @State private var title = ""
     @State private var description = ""
-    @State private var startDate = Date()
-    @State private var endDate = Date().addingTimeInterval(3600) // Default to 1 hour later
-    @State private var hasDateRange = false
-    @State private var selectedNotificationInterval: NotificationInterval = .none
+    @State private var intervalConfig = IntervalConfiguration.defaultDaily
     @State private var showingPermissionAlert = false
     @State private var isSaving = false
-    
-    // Custom duration state
-    @State private var customMinutes: Int32 = 0
-    @State private var customValue: Int32 = 1
-    @State private var customUnit: DurationUnit = .days
     
     // Character limits
     private let titleCharacterLimit = 50
@@ -59,23 +51,8 @@ struct AddArsenalView: View {
                     }
                 }
                 
-                Section(header: Text("Date Range")) {
-                    Toggle("Set date range", isOn: $hasDateRange)
-                    
-                    if hasDateRange {
-                        DatePicker("Start", selection: $startDate, displayedComponents: [.date, .hourAndMinute])
-                            .datePickerStyle(.compact)
-                        
-                        DatePicker("End", selection: $endDate, in: startDate..., displayedComponents: [.date, .hourAndMinute])
-                            .datePickerStyle(.compact)
-                    }
-                }
-                
-                NotificationIntervalSection(
-                    selectedInterval: $selectedNotificationInterval,
-                    customMinutes: $customMinutes,
-                    customValue: $customValue,
-                    customUnit: $customUnit,
+                IntervalSelectionView(
+                    intervalConfig: $intervalConfig,
                     isAuthorized: notificationManager.isAuthorized
                 )
             }
@@ -120,37 +97,21 @@ struct AddArsenalView: View {
     private func saveArsenal() {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedDescription = description.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        let startDateToUse = hasDateRange ? startDate : nil
-        let endDateToUse = hasDateRange ? endDate : nil
         let descriptionToUse = trimmedDescription.isEmpty ? nil : trimmedDescription
         
         // Check if notification permission is needed
-        let needsPermission = (selectedNotificationInterval == .custom && customMinutes > 0) || 
-                             (selectedNotificationInterval != .none && selectedNotificationInterval != .custom)
-        if needsPermission && !notificationManager.isAuthorized {
+        if intervalConfig.type != .none && !notificationManager.isAuthorized {
             showingPermissionAlert = true
             return
         }
         
         isSaving = true
         
-        // Determine the actual notification interval to use
-        let intervalToUse: Int32
-        if selectedNotificationInterval == .custom {
-            // If custom is 0, treat as no notifications
-            intervalToUse = customMinutes == 0 ? 0 : customMinutes
-        } else {
-            intervalToUse = selectedNotificationInterval.rawValue
-        }
-        
-        // Use the synchronous method
+        // Create arsenal with interval configuration
         if let _ = arsenalManager.createArsenal(
             title: trimmedTitle,
             description: descriptionToUse,
-            startDate: startDateToUse,
-            endDate: endDateToUse,
-            notificationInterval: intervalToUse
+            intervalConfig: intervalConfig
         ) {
             isSaving = false
             dismiss()
@@ -173,4 +134,4 @@ struct AddArsenalView: View {
     AddArsenalView()
         .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
         .environmentObject(ArsenalManager())
-} 
+}

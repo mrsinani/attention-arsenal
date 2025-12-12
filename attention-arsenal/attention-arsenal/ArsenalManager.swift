@@ -3,125 +3,6 @@ import Foundation
 import UserNotifications
 import WidgetKit
 
-// MARK: - Notification Interval Enum
-enum NotificationInterval: Int32, CaseIterable {
-    case none = 0
-    case fiveMinutes = 5
-    case fifteenMinutes = 15
-    case thirtyMinutes = 30
-    case oneHour = 60
-    case twoHours = 120
-    case fourHours = 240
-    case sixHours = 360
-    case twelveHours = 720
-    case daily = 1440
-    case weekly = 10080        // 7 days
-    case biweekly = 20160      // 14 days
-    case monthly = 43200       // 30 days
-    case custom = -1           // Special case for custom intervals
-    
-    var displayName: String {
-        switch self {
-        case .none:
-            return "No notifications"
-        case .fiveMinutes:
-            return "Every 5 minutes"
-        case .fifteenMinutes:
-            return "Every 15 minutes"
-        case .thirtyMinutes:
-            return "Every 30 minutes"
-        case .oneHour:
-            return "Every hour"
-        case .twoHours:
-            return "Every 2 hours"
-        case .fourHours:
-            return "Every 4 hours"
-        case .sixHours:
-            return "Every 6 hours"
-        case .twelveHours:
-            return "Every 12 hours"
-        case .daily:
-            return "Daily"
-        case .weekly:
-            return "Weekly"
-        case .biweekly:
-            return "Every 2 weeks"
-        case .monthly:
-            return "Monthly"
-        case .custom:
-            return "Custom"
-        }
-    }
-    
-    var timeInterval: TimeInterval {
-        return TimeInterval(self.rawValue * 60) // Convert minutes to seconds
-    }
-}
-
-// MARK: - Custom Duration
-enum DurationUnit: String, CaseIterable, Identifiable {
-    case minutes = "Minutes"
-    case hours = "Hours"
-    case days = "Days"
-    case weeks = "Weeks"
-    case months = "Months"
-    
-    var id: String { rawValue }
-    
-    var minutesMultiplier: Int32 {
-        switch self {
-        case .minutes: return 1
-        case .hours: return 60
-        case .days: return 1440        // 24 hours
-        case .weeks: return 10080      // 7 days
-        case .months: return 43200     // 30 days (approximate)
-        }
-    }
-    
-    var maxValue: Int32 {
-        // Conservative limits to prevent overflow when multiplying
-        // Int32 max is 2,147,483,647, so we stay well below that
-        switch self {
-        case .minutes:
-            return 10_000 // ~7 days max
-        case .hours:
-            return 1_000  // ~41 days max
-        case .days:
-            return 365    // 1 year max
-        case .weeks:
-            return 52     // 1 year max
-        case .months:
-            return 24     // 2 years max
-        }
-    }
-}
-
-struct CustomDuration {
-    var value: Int32
-    var unit: DurationUnit
-    
-    var totalMinutes: Int32 {
-        return value * unit.minutesMultiplier
-    }
-    
-    static func fromMinutes(_ minutes: Int32) -> CustomDuration? {
-        guard minutes > 0 else { return nil }
-        
-        // Try to find the best unit representation
-        if minutes % DurationUnit.months.minutesMultiplier == 0 {
-            return CustomDuration(value: minutes / DurationUnit.months.minutesMultiplier, unit: .months)
-        } else if minutes % DurationUnit.weeks.minutesMultiplier == 0 {
-            return CustomDuration(value: minutes / DurationUnit.weeks.minutesMultiplier, unit: .weeks)
-        } else if minutes % DurationUnit.days.minutesMultiplier == 0 {
-            return CustomDuration(value: minutes / DurationUnit.days.minutesMultiplier, unit: .days)
-        } else if minutes % DurationUnit.hours.minutesMultiplier == 0 {
-            return CustomDuration(value: minutes / DurationUnit.hours.minutesMultiplier, unit: .hours)
-        } else {
-            return CustomDuration(value: minutes, unit: .minutes)
-        }
-    }
-}
-
 class ArsenalManager: ObservableObject {
     private let viewContext: NSManagedObjectContext
     private let notificationManager = NotificationManager.shared
@@ -131,21 +12,25 @@ class ArsenalManager: ObservableObject {
     }
     
     // MARK: - Create
-    func createArsenal(title: String, description: String? = nil, startDate: Date? = nil, endDate: Date? = nil, notificationInterval: Int32 = 0) -> Arsenal? {
+    func createArsenal(
+        title: String,
+        description: String? = nil,
+        intervalConfig: IntervalConfiguration = IntervalConfiguration.defaultDaily
+    ) -> Arsenal? {
         let arsenal = Arsenal(context: viewContext)
         arsenal.title = title
         arsenal.arsenalDescription = description
-        arsenal.startDate = startDate
-        arsenal.endDate = endDate
-        arsenal.notificationInterval = notificationInterval
         arsenal.createdDate = Date()
         arsenal.isCompleted = false
+        
+        // Apply interval configuration
+        intervalConfig.apply(to: arsenal)
         
         do {
             try viewContext.save()
             
             // Schedule notification if needed
-            if notificationInterval > 0 {
+            if intervalConfig.type != .none {
                 notificationManager.scheduleNotification(for: arsenal)
             }
             
@@ -189,21 +74,21 @@ class ArsenalManager: ObservableObject {
     }
     
     // MARK: - Update
-    func updateArsenal(_ arsenal: Arsenal, title: String? = nil, description: String? = nil, startDate: Date? = nil, endDate: Date? = nil, notificationInterval: Int32? = nil, isCompleted: Bool? = nil) -> Bool {
+    func updateArsenal(
+        _ arsenal: Arsenal,
+        title: String? = nil,
+        description: String? = nil,
+        intervalConfig: IntervalConfiguration? = nil,
+        isCompleted: Bool? = nil
+    ) -> Bool {
         if let title = title {
             arsenal.title = title
         }
         if let description = description {
             arsenal.arsenalDescription = description
         }
-        if let startDate = startDate {
-            arsenal.startDate = startDate
-        }
-        if let endDate = endDate {
-            arsenal.endDate = endDate
-        }
-        if let notificationInterval = notificationInterval {
-            arsenal.notificationInterval = notificationInterval
+        if let intervalConfig = intervalConfig {
+            intervalConfig.apply(to: arsenal)
         }
         if let isCompleted = isCompleted {
             arsenal.isCompleted = isCompleted
@@ -214,6 +99,9 @@ class ArsenalManager: ObservableObject {
         
         do {
             try context.save()
+            
+            // Update notifications
+            notificationManager.updateNotification(for: arsenal)
             
             // Reload widget to reflect changes
             WidgetCenter.shared.reloadAllTimelines()
@@ -234,8 +122,11 @@ class ArsenalManager: ObservableObject {
             // Handle notifications
             if arsenal.isCompleted {
                 notificationManager.cancelNotifications(for: arsenal)
-            } else if arsenal.notificationInterval > 0 {
-                notificationManager.scheduleNotification(for: arsenal)
+            } else {
+                let config = IntervalConfiguration(from: arsenal)
+                if config.type != .none {
+                    notificationManager.scheduleNotification(for: arsenal)
+                }
             }
             
             // Reload widget to update completion status
@@ -296,6 +187,9 @@ class ArsenalManager: ObservableObject {
         do {
             try viewContext.execute(deleteRequest)
             try viewContext.save()
+            
+            // Cancel all notifications
+            notificationManager.cancelAllNotifications()
             
             // Reload widget to clear all arsenals
             WidgetCenter.shared.reloadAllTimelines()

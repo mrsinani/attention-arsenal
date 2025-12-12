@@ -319,6 +319,25 @@ struct EventRow: View {
         return "\(startTime) - \(endTime)"
     }
     
+    /// Convert minutes to appropriate IntervalConfiguration
+    private func convertMinutesToIntervalConfig(_ minutes: Int32) -> IntervalConfiguration {
+        switch minutes {
+        case 5, 15, 30:
+            return IntervalConfiguration(type: .minutes, value: Int16(minutes))
+        case 60, 120, 240, 360, 720:
+            return IntervalConfiguration(type: .hours, value: Int16(minutes / 60))
+        case 1440: // Daily
+            return IntervalConfiguration.defaultDaily
+        case 10080, 20160: // Weekly or Biweekly (use weekly)
+            return IntervalConfiguration.defaultWeekly
+        case 43200: // Monthly (approximate)
+            return IntervalConfiguration.defaultMonthly
+        default:
+            // Default to 4 hours
+            return IntervalConfiguration(type: .hours, value: 4)
+        }
+    }
+    
     private func createAIReminder() {
         isCreatingReminder = true
         
@@ -329,14 +348,13 @@ struct EventRow: View {
                 
                 // Create the arsenal with suggested details
                 await MainActor.run {
-                    // Start date is always today (when reminder is created)
-                    // End date is when the event actually happens
+                    // Convert notification interval (in minutes) to IntervalConfiguration
+                    let intervalConfig = convertMinutesToIntervalConfig(suggestion.notificationInterval)
+                    
                     let arsenal = arsenalManager.createArsenal(
                         title: suggestion.title,
                         description: suggestion.description,
-                        startDate: Date(),
-                        endDate: event.endDate,
-                        notificationInterval: suggestion.notificationInterval
+                        intervalConfig: intervalConfig
                     )
                     
                     isCreatingReminder = false

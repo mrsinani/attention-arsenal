@@ -39,51 +39,113 @@ class NotificationManager: ObservableObject {
     
     // MARK: - Notification Scheduling
     func scheduleNotification(for arsenal: Arsenal) {
-        guard arsenal.notificationInterval > 0 else { return }
+        let config = IntervalConfiguration(from: arsenal)
+        
+        guard config.type != .none else { return }
         
         // Cancel any existing notifications for this arsenal first
         cancelNotifications(for: arsenal)
         
-        let content = UNMutableNotificationContent()
-        content.title = "Attention Arsenal"
-        content.body = arsenal.title ?? "You have a pending task"
-        content.sound = .default
-        
-        // Add arsenal ID to user info for identification
-        content.userInfo = ["arsenalID": arsenal.objectID.uriRepresentation().absoluteString]
-        
-        // Ensure the app icon shows in notifications
+        let content = createNotificationContent(for: arsenal)
         content.categoryIdentifier = "ARSENAL_REMINDER"
         
-        // Create trigger that repeats based on the interval
-        let trigger = UNTimeIntervalNotificationTrigger(
-            timeInterval: TimeInterval(arsenal.notificationInterval) * 60.0, // Convert minutes to seconds
-            repeats: true
-        )
-        
-        // Create unique identifier for this arsenal's notifications
         let identifier = "arsenal_\(arsenal.objectID.uriRepresentation().absoluteString)"
         
-        let request = UNNotificationRequest(
-            identifier: identifier,
-            content: content,
-            trigger: trigger
-        )
+        // Create triggers based on interval type
+        let triggers = createTriggers(for: config, identifier: identifier)
         
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                print("Error scheduling notification for arsenal: \(error)")
-            } else {
-                print("Successfully scheduled notification for arsenal: \(arsenal.title ?? "Unknown")")
+        // Schedule all notification requests
+        for (index, trigger) in triggers.enumerated() {
+            let request = UNNotificationRequest(
+                identifier: "\(identifier)_\(index)",
+                content: content,
+                trigger: trigger
+            )
+            
+            UNUserNotificationCenter.current().add(request) { error in
+                if let error = error {
+                    print("Error scheduling notification for arsenal: \(error)")
+                } else {
+                    print("Successfully scheduled notification for arsenal: \(arsenal.title ?? "Unknown")")
+                }
+            }
+        }
+    }
+    
+    private func createTriggers(for config: IntervalConfiguration, identifier: String) -> [UNNotificationTrigger] {
+        switch config.type {
+        case .none:
+            return []
+            
+        case .minutes, .hours:
+            // Use time interval trigger for minutes/hours
+            guard let timeInterval = config.timeIntervalInSeconds else { return [] }
+            let trigger = UNTimeIntervalNotificationTrigger(
+                timeInterval: timeInterval,
+                repeats: true
+            )
+            return [trigger]
+            
+        case .daily:
+            // Create a trigger for each selected day of week
+            let selectedDays = config.days.selectedDays
+            guard !selectedDays.isEmpty else { return [] }
+            
+            return selectedDays.map { weekday in
+                var dateComponents = DateComponents()
+                dateComponents.weekday = weekday.calendarWeekday
+                dateComponents.hour = Int(config.hour)
+                dateComponents.minute = Int(config.minute)
+                
+                return UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
+            }
+            
+        case .weekly:
+            // Create a trigger for each selected day of week
+            let selectedDays = config.days.selectedDays
+            guard !selectedDays.isEmpty else { return [] }
+            
+            // For weekly, we need to calculate the next occurrence based on the week interval
+            // Since UNCalendarNotificationTrigger doesn't support "every N weeks" directly,
+            // we'll schedule for each week and handle the interval in the date calculation
+            return selectedDays.map { weekday in
+                var dateComponents = DateComponents()
+                dateComponents.weekday = weekday.calendarWeekday
+                dateComponents.hour = Int(config.hour)
+                dateComponents.minute = Int(config.minute)
+                
+                return UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
+            }
+            
+        case .monthly:
+            // Create a trigger for each selected day of month
+            let selectedDays = config.monthDays.selectedDays
+            guard !selectedDays.isEmpty else { return [] }
+            
+            return selectedDays.map { day in
+                var dateComponents = DateComponents()
+                dateComponents.day = day
+                dateComponents.hour = Int(config.hour)
+                dateComponents.minute = Int(config.minute)
+                
+                return UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
             }
         }
     }
     
     // MARK: - Notification Management
     func cancelNotifications(for arsenal: Arsenal) {
-        let identifier = "arsenal_\(arsenal.objectID.uriRepresentation().absoluteString)"
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
-        print("Cancelled notifications for arsenal: \(arsenal.title ?? "Unknown")")
+        let baseIdentifier = "arsenal_\(arsenal.objectID.uriRepresentation().absoluteString)"
+        
+        // Get all pending notifications and filter by our identifier prefix
+        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+            let identifiersToCancel = requests
+                .filter { $0.identifier.hasPrefix(baseIdentifier) }
+                .map { $0.identifier }
+            
+            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiersToCancel)
+            print("Cancelled \(identifiersToCancel.count) notification(s) for arsenal: \(arsenal.title ?? "Unknown")")
+        }
     }
     
     func cancelAllNotifications() {
@@ -95,9 +157,12 @@ class NotificationManager: ObservableObject {
         // Cancel existing notifications and schedule new ones if needed
         cancelNotifications(for: arsenal)
         
-        // Only schedule if arsenal is not completed and has notification interval
-        if !arsenal.isCompleted && arsenal.notificationInterval > 0 {
-            scheduleNotification(for: arsenal)
+        // Only schedule if arsenal is not completed and has notification configuration
+        if !arsenal.isCompleted {
+            let config = IntervalConfiguration(from: arsenal)
+            if config.type != .none {
+                scheduleNotification(for: arsenal)
+            }
         }
     }
     

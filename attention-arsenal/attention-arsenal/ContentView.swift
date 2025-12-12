@@ -408,21 +408,10 @@ struct ArsenalRowView: View {
                         .lineLimit(2)
                 }
                 
-                // Display date range if available
-                if let startDate = arsenal.startDate, let endDate = arsenal.endDate {
-                    HStack(spacing: 4) {
-                        Text(startDate, style: .date)
-                        Text("—")
-                        Text(endDate, style: .date)
-                    }
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                } else if let startDate = arsenal.startDate {
-                    Text(startDate, style: .date)
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                } else if let endDate = arsenal.endDate {
-                    Text("Until: \(endDate, style: .date)")
+                // Display notification interval summary
+                let config = IntervalConfiguration(from: arsenal)
+                if config.type != .none {
+                    Text(config.summary)
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
@@ -431,7 +420,8 @@ struct ArsenalRowView: View {
             Spacer()
             
             // Notification indicator
-            if arsenal.notificationInterval > 0 && !arsenal.isCompleted {
+            let config = IntervalConfiguration(from: arsenal)
+            if config.type != .none && !arsenal.isCompleted {
                 Image(systemName: "bell.fill")
                     .font(.caption)
                     .foregroundColor(.blue)

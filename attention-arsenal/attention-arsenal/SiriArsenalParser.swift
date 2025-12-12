@@ -47,9 +47,9 @@ class SiriArsenalParser {
         - "Christmas" = December 25
         - NO specific date mentioned = null
         
-        IMPORTANT: The start date will always be today. Only extract the END date (when the event actually happens).
+        IMPORTANT: Arsenals start immediately when created. Only extract the END date if a specific event date is mentioned.
         
-        Notification intervals (in minutes): 5, 15, 30, 60, 120, 240, 360, 720, 1440, 10080 (weekly), 20160 (biweekly), 43200 (monthly)
+        Notification intervals (in minutes): 5, 15, 30, 60, 120, 240, 360, 720, 1440 (daily), 10080 (weekly), 20160 (biweekly), 43200 (monthly)
         Choose based on urgency:
         - Urgent/Soon: 30-60
         - This week: 120-240
@@ -112,21 +112,13 @@ class SiriArsenalParser {
             
             let parsed = try decoder.decode(ParsedArsenalResponse.self, from: jsonData)
             
-            // Validate notification interval
-            let validIntervals: [Int32] = [5, 15, 30, 60, 120, 240, 360, 720, 1440, 10080, 20160, 43200]
-            let interval = validIntervals.contains(parsed.notificationInterval) 
-                ? parsed.notificationInterval 
-                : 240 // Default to 4 hours
-            
-            // Start date is always today
-            let today = Date()
+            // Convert notification interval to IntervalConfiguration
+            let intervalConfig = convertMinutesToIntervalConfig(parsed.notificationInterval)
             
             return ParsedArsenal(
                 title: parsed.title,
                 description: parsed.description,
-                startDate: today,
-                endDate: parsed.endDate,
-                notificationInterval: interval
+                intervalConfig: intervalConfig
             )
         } catch {
             // Fallback to simple parsing
@@ -139,16 +131,35 @@ class SiriArsenalParser {
         let title = String(input.prefix(50))
         let description = "Voice reminder: \(input)"
         
-        // Start date is always today
-        let today = Date()
+        // Default to 4 hours interval
+        let intervalConfig = IntervalConfiguration(type: .hours, value: 4)
         
         return ParsedArsenal(
             title: title,
             description: description,
-            startDate: today,
-            endDate: nil,
-            notificationInterval: 240
+            intervalConfig: intervalConfig
         )
+    }
+    
+    /// Convert minutes to appropriate IntervalConfiguration
+    private func convertMinutesToIntervalConfig(_ minutes: Int32) -> IntervalConfiguration {
+        switch minutes {
+        case 5, 15, 30:
+            return IntervalConfiguration(type: .minutes, value: Int16(minutes))
+        case 60, 120, 240, 360, 720:
+            return IntervalConfiguration(type: .hours, value: Int16(minutes / 60))
+        case 1440: // Daily
+            return IntervalConfiguration.defaultDaily
+        case 10080: // Weekly
+            return IntervalConfiguration.defaultWeekly
+        case 20160: // Biweekly (2 weeks)
+            return IntervalConfiguration(type: .weekly, value: 2)
+        case 43200: // Monthly (approximate)
+            return IntervalConfiguration.defaultMonthly
+        default:
+            // Default to 4 hours
+            return IntervalConfiguration(type: .hours, value: 4)
+        }
     }
 }
 
@@ -157,9 +168,7 @@ class SiriArsenalParser {
 struct ParsedArsenal {
     let title: String
     let description: String
-    let startDate: Date?
-    let endDate: Date?
-    let notificationInterval: Int32
+    let intervalConfig: IntervalConfiguration
 }
 
 private struct ParsedArsenalResponse: Codable {
