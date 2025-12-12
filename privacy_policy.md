@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last Updated: January 20, 2025**
+**Last Updated: [Current Date - Update when publishing]**
 
 This privacy policy applies to the Attention Arsenal app (hereby referred to as "Application") for mobile devices that was created by Danaid Sinani (hereby referred to as "Service Provider") as an Open Source service. This service is intended for use "AS IS".
 
@@ -11,6 +11,7 @@ This privacy policy applies to the Attention Arsenal app (hereby referred to as 
 **User-Generated Content:**
 
 - The Application stores reminders, tasks, and notes (collectively "Arsenals") that you create
+- This includes arsenal titles, descriptions, notification intervals (minutes, hours, daily, weekly, monthly), selected days of the week, days of the month, and notification times
 - This content is stored **locally on your device** using Core Data
 - No account registration is required
 - Your data is never uploaded to our servers
@@ -32,7 +33,7 @@ This privacy policy applies to the Attention Arsenal app (hereby referred to as 
 
 - The Application offers optional home screen widgets that display your arsenals
 - Widget data is stored locally on your device using App Groups (shared storage between the app and widget)
-- Widgets display your arsenal titles, descriptions, and dates on your home screen
+- Widgets display your arsenal titles, descriptions, and notification intervals on your home screen
 - **Privacy Note**: Widget content is visible to anyone who can see your device's home screen
 - All widget data remains on your device and is never transmitted to external servers
 - You can remove widgets at any time by removing them from your home screen
@@ -225,6 +226,6 @@ This Application is open source. You can review the code to verify our privacy p
 
 ---
 
-_This privacy policy is effective as of January 20, 2025_
+_This privacy policy is effective as of [Current Date - Update when publishing]_
 
 _Generated with [App Privacy Policy Generator](https://app-privacy-policy-generator.nisrulz.com/) and customized for Attention Arsenal_
