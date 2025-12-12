@@ -13,8 +13,9 @@ struct ArsenalData: Identifiable {
     let id: UUID
     let title: String
     let arsenalDescription: String?
-    let startDate: Date?
-    let endDate: Date?
+    let startDate: Date? // Kept for backward compatibility
+    let endDate: Date? // Kept for backward compatibility
+    let intervalSummary: String? // New: interval configuration summary
     let isCompleted: Bool
 }
 
@@ -72,12 +73,16 @@ struct ArsenalWidgetProvider: TimelineProvider {
         do {
             let results = try context.fetch(fetchRequest)
             return results.map { arsenal in
-                ArsenalData(
+                // Generate interval summary directly from Core Data properties
+                let summary = generateIntervalSummary(from: arsenal)
+                
+                return ArsenalData(
                     id: UUID(), // Simple unique ID for each fetch
                     title: arsenal.title ?? "Untitled",
                     arsenalDescription: arsenal.arsenalDescription,
-                    startDate: arsenal.startDate,
-                    endDate: arsenal.endDate,
+                    startDate: arsenal.startDate, // For backward compatibility
+                    endDate: arsenal.endDate, // For backward compatibility
+                    intervalSummary: summary,
                     isCompleted: arsenal.isCompleted
                 )
             }
@@ -93,11 +98,78 @@ struct ArsenalWidgetProvider: TimelineProvider {
                 id: UUID(),
                 title: "Sample Arsenal",
                 arsenalDescription: "This is a sample arsenal",
-                startDate: Date(),
-                endDate: Date().addingTimeInterval(3600),
+                startDate: nil,
+                endDate: nil,
+                intervalSummary: "Daily at 9:00 AM",
                 isCompleted: false
             )
         ]
+    }
+    
+    // MARK: - Interval Summary Helper
+    private func generateIntervalSummary(from arsenal: Arsenal) -> String? {
+        let intervalType = arsenal.intervalType
+        guard intervalType != 0 else { return nil } // .none
+        
+        switch intervalType {
+        case 1: // .minutes
+            return "Every \(arsenal.intervalValue) minute\(arsenal.intervalValue == 1 ? "" : "s")"
+            
+        case 2: // .hours
+            return "Every \(arsenal.intervalValue) hour\(arsenal.intervalValue == 1 ? "" : "s")"
+            
+        case 3: // .daily
+            let timeStr = formatTime(hour: arsenal.notificationHour, minute: arsenal.notificationMinute)
+            let days = arsenal.notificationDays
+            if days == 0b1111111 { // All days
+                return "Daily at \(timeStr)"
+            } else {
+                return "Daily at \(timeStr)" // Simplified - could parse days bitmask if needed
+            }
+            
+        case 4: // .weekly
+            let timeStr = formatTime(hour: arsenal.notificationHour, minute: arsenal.notificationMinute)
+            return "Every week at \(timeStr)"
+            
+        case 5: // .monthly
+            let timeStr = formatTime(hour: arsenal.notificationHour, minute: arsenal.notificationMinute)
+            // Parse month days bitmask
+            let selectedDays = (1...31).filter { day in
+                let bit = Int32(1 << (day - 1))
+                return (Int32(arsenal.notificationInterval) & bit) != 0
+            }
+            if selectedDays.count == 1 {
+                let dayStr = ordinalDay(Int16(selectedDays[0]))
+                return "Every month on the \(dayStr) at \(timeStr)"
+            } else if !selectedDays.isEmpty {
+                return "Every month at \(timeStr)" // Simplified for multiple days
+            } else {
+                return "Every month at \(timeStr)"
+            }
+            
+        default:
+            return nil
+        }
+    }
+    
+    private func formatTime(hour: Int16, minute: Int16) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        
+        var components = DateComponents()
+        components.hour = Int(hour)
+        components.minute = Int(minute)
+        
+        if let date = Calendar.current.date(from: components) {
+            return formatter.string(from: date)
+        }
+        return "\(hour):\(String(format: "%02d", minute))"
+    }
+    
+    private func ordinalDay(_ day: Int16) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .ordinal
+        return formatter.string(from: NSNumber(value: day)) ?? "\(day)"
     }
 }
 
@@ -204,22 +276,30 @@ struct WidgetArsenalRowView: View {
                     .foregroundColor(.secondary)
             }
             
-            if let startDate = arsenal.startDate, let endDate = arsenal.endDate {
-                HStack(spacing: 4) {
+            // Show interval summary if available (new system)
+            if let intervalSummary = arsenal.intervalSummary {
+                Text(intervalSummary)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            } else {
+                // Fallback to old date system for backward compatibility
+                if let startDate = arsenal.startDate, let endDate = arsenal.endDate {
+                    HStack(spacing: 4) {
+                        Text(startDate, style: .date)
+                        Text("—")
+                        Text(endDate, style: .date)
+                    }
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                } else if let startDate = arsenal.startDate {
                     Text(startDate, style: .date)
-                    Text("—")
-                    Text(endDate, style: .date)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                } else if let endDate = arsenal.endDate {
+                    Text("Until: \(endDate, style: .date)")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
-                .font(.caption2)
-                .foregroundColor(.secondary)
-            } else if let startDate = arsenal.startDate {
-                Text(startDate, style: .date)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            } else if let endDate = arsenal.endDate {
-                Text("Until: \(endDate, style: .date)")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
             }
         }
         .padding(.horizontal, 12)
@@ -255,16 +335,18 @@ struct AttentionArsenalWidget_Previews: PreviewProvider {
                 id: UUID(),
                 title: "Sample Arsenal 1",
                 arsenalDescription: "This is a sample description",
-                startDate: Date(),
-                endDate: Date().addingTimeInterval(86400),
+                startDate: nil,
+                endDate: nil,
+                intervalSummary: "Daily at 9:00 AM",
                 isCompleted: false
             ),
             ArsenalData(
                 id: UUID(),
                 title: "Sample Arsenal 2",
                 arsenalDescription: "Another sample",
-                startDate: Date().addingTimeInterval(86400),
-                endDate: Date().addingTimeInterval(172800),
+                startDate: nil,
+                endDate: nil,
+                intervalSummary: "Weekly on Monday at 2:00 PM",
                 isCompleted: false
             )
         ]
