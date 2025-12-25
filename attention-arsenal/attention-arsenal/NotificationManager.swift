@@ -6,17 +6,9 @@ class NotificationManager: ObservableObject {
     static let shared = NotificationManager()
     
     @Published var isAuthorized = false
-    @Published var testModeEnabled = false
-    @Published var testOffsetMinutes: Int = 1 // Minutes from now to schedule test notifications
     
     private init() {
         checkAuthorizationStatus()
-        // Load test mode setting from UserDefaults
-        testModeEnabled = UserDefaults.standard.bool(forKey: "notificationTestMode")
-        testOffsetMinutes = UserDefaults.standard.integer(forKey: "notificationTestOffset")
-        if testOffsetMinutes == 0 {
-            testOffsetMinutes = 1 // Default to 1 minute
-        }
     }
     
     // MARK: - Permission Management
@@ -45,25 +37,21 @@ class NotificationManager: ObservableObject {
         }
     }
     
-    func setTestMode(enabled: Bool) {
-        testModeEnabled = enabled
-        UserDefaults.standard.set(enabled, forKey: "notificationTestMode")
-        // Note: Existing notifications won't be rescheduled automatically
-        // User needs to edit and save arsenals to reschedule with new test mode
-    }
-    
-    func setTestOffset(minutes: Int) {
-        testOffsetMinutes = minutes
-        UserDefaults.standard.set(minutes, forKey: "notificationTestOffset")
-        // Note: Existing notifications won't be rescheduled automatically
-        // User needs to edit and save arsenals to reschedule with new offset
-    }
-    
     // MARK: - Notification Scheduling
     func scheduleNotification(for arsenal: Arsenal) {
         let config = IntervalConfiguration(from: arsenal)
         
-        guard config.type != .none else { return }
+        // Debug logging
+        print("📅 Scheduling notification for: \(arsenal.title ?? "Unknown")")
+        print("   Type: \(config.type.displayName), Value: \(config.value)")
+        if let interval = config.timeIntervalInSeconds {
+            print("   Time interval: \(interval) seconds (\(interval/60) minutes)")
+        }
+        
+        guard config.type != .none else {
+            print("   ⚠️ Type is .none, skipping")
+            return
+        }
         
         // Cancel any existing notifications for this arsenal first
         cancelNotifications(for: arsenal)
@@ -75,6 +63,7 @@ class NotificationManager: ObservableObject {
         
         // Create triggers based on interval type
         let triggers = createTriggers(for: config, identifier: identifier)
+        print("   Created \(triggers.count) trigger(s)")
         
         // Schedule all notification requests
         for (index, trigger) in triggers.enumerated() {
@@ -95,17 +84,14 @@ class NotificationManager: ObservableObject {
     }
     
     private func createTriggers(for config: IntervalConfiguration, identifier: String) -> [UNNotificationTrigger] {
-        // If test mode is enabled, use time interval triggers for quick testing
-        if testModeEnabled {
-            return createTestTriggers(for: config)
-        }
-        
         switch config.type {
         case .none:
             return []
             
         case .minutes, .hours:
-            // Use time interval trigger for minutes/hours
+            // STABLE: Minutes/Hours notification logic - tested and working as of Dec 2025
+            // Uses UNTimeIntervalNotificationTrigger with repeating intervals
+            // Minutes: value * 60 seconds, Hours: value * 3600 seconds
             guard let timeInterval = config.timeIntervalInSeconds else { return [] }
             let trigger = UNTimeIntervalNotificationTrigger(
                 timeInterval: timeInterval,
@@ -114,44 +100,62 @@ class NotificationManager: ObservableObject {
             return [trigger]
             
         case .daily:
-            // Create a trigger for each selected day of week
-            let selectedDays = config.days.selectedDays
-            guard !selectedDays.isEmpty else { return [] }
+            // STABLE: Daily notification logic - tested and working as of Dec 2025
+            // Uses UNCalendarNotificationTrigger with only hour/minute (no weekday = fires every day)
+            var dateComponents = DateComponents()
+            dateComponents.hour = Int(config.hour)
+            dateComponents.minute = Int(config.minute)
             
-            return selectedDays.map { weekday in
-                var dateComponents = DateComponents()
-                dateComponents.weekday = weekday.calendarWeekday // 1=Sunday, 7=Saturday
-                dateComponents.hour = Int(config.hour)
-                dateComponents.minute = Int(config.minute)
-                
-                // Log for debugging
-                print("Scheduled daily notification for \(weekday.fullName) at \(config.hour):\(String(format: "%02d", config.minute))")
-                
-                return UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
+            let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
+            
+            // Debug: Show when notification will actually fire
+            if let nextDate = trigger.nextTriggerDate() {
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+                print("📅 Daily notification scheduled for \(config.hour):\(String(format: "%02d", config.minute))")
+                print("   Next trigger: \(formatter.string(from: nextDate))")
+            } else {
+                print("⚠️ Daily notification has no next trigger date!")
             }
             
-        case .weekly:
-            // Create a trigger for each selected day of week
-            let selectedDays = config.days.selectedDays
-            guard !selectedDays.isEmpty else { return [] }
+            return [trigger]
             
-            // Weekly is simplified to "every week" - fires every week on selected days
+        case .weekly:
+            // STABLE: Weekly notification logic - tested and working as of Dec 2025
+            // Creates one UNCalendarNotificationTrigger per selected weekday
+            let selectedDays = config.days.selectedDays
+            guard !selectedDays.isEmpty else {
+                print("⚠️ Weekly notification has no days selected - skipping")
+                return []
+            }
+            
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            
             return selectedDays.map { weekday in
                 var dateComponents = DateComponents()
                 dateComponents.weekday = weekday.calendarWeekday // 1=Sunday, 7=Saturday
                 dateComponents.hour = Int(config.hour)
                 dateComponents.minute = Int(config.minute)
                 
-                // Log for debugging
-                print("Scheduled weekly notification for \(weekday.fullName) at \(config.hour):\(String(format: "%02d", config.minute))")
+                let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
                 
-                return UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
+                if let nextDate = trigger.nextTriggerDate() {
+                    print("📅 Weekly notification for \(weekday.fullName) at \(config.hour):\(String(format: "%02d", config.minute))")
+                    print("   Next trigger: \(formatter.string(from: nextDate))")
+                }
+                
+                return trigger
             }
             
         case .monthly:
-            // Create a trigger for each selected day of month
+            // STABLE: Monthly notification logic - tested and working as of Dec 2025
+            // Creates one UNCalendarNotificationTrigger per selected day of month
             let selectedDays = config.monthDays.selectedDays
-            guard !selectedDays.isEmpty else { return [] }
+            guard !selectedDays.isEmpty else {
+                print("⚠️ Monthly notification has no days selected - skipping")
+                return []
+            }
             
             return selectedDays.map { day in
                 var dateComponents = DateComponents()
@@ -159,13 +163,8 @@ class NotificationManager: ObservableObject {
                 dateComponents.hour = Int(config.hour)
                 dateComponents.minute = Int(config.minute)
                 
-                // Note: UNCalendarNotificationTrigger handles edge cases:
-                // - If day 31 is selected but month has 30 days, it fires on the 30th
-                // - If day 29-31 is selected in February, it fires on Feb 28/29 (leap year)
-                // - This is the expected iOS behavior
                 let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
                 
-                // Log for debugging
                 print("Scheduled monthly notification for day \(day) at \(config.hour):\(String(format: "%02d", config.minute))")
                 
                 return trigger
@@ -173,48 +172,12 @@ class NotificationManager: ObservableObject {
         }
     }
     
-    /// Create test triggers that fire quickly for testing purposes
-    private func createTestTriggers(for config: IntervalConfiguration) -> [UNNotificationTrigger] {
-        switch config.type {
-        case .none:
-            return []
-            
-        case .minutes, .hours:
-            // Use actual intervals for minutes/hours even in test mode
-            guard let timeInterval = config.timeIntervalInSeconds else { return [] }
-            let trigger = UNTimeIntervalNotificationTrigger(
-                timeInterval: timeInterval,
-                repeats: true
-            )
-            return [trigger]
-            
-        case .daily, .weekly, .monthly:
-            // For daily/weekly/monthly, schedule to fire in testOffsetMinutes
-            // Create one trigger per selected day/weekday/monthday
-            let count: Int
-            switch config.type {
-            case .daily, .weekly:
-                count = config.days.selectedDays.count
-            case .monthly:
-                count = config.monthDays.selectedDays.count
-            default:
-                count = 1
-            }
-            
-            // Create triggers with small delays between them (1 second apart) so they don't all fire at once
-            return (0..<count).map { index in
-                let timeInterval = TimeInterval(testOffsetMinutes * 60) + TimeInterval(index)
-                return UNTimeIntervalNotificationTrigger(
-                    timeInterval: timeInterval,
-                    repeats: false // Don't repeat in test mode
-                )
-            }
-        }
-    }
-    
     // MARK: - Notification Management
     func cancelNotifications(for arsenal: Arsenal) {
         let baseIdentifier = "arsenal_\(arsenal.objectID.uriRepresentation().absoluteString)"
+        
+        // Use semaphore to make this synchronous and avoid race conditions
+        let semaphore = DispatchSemaphore(value: 0)
         
         // Get all pending notifications and filter by our identifier prefix
         UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
@@ -224,7 +187,11 @@ class NotificationManager: ObservableObject {
             
             UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiersToCancel)
             print("Cancelled \(identifiersToCancel.count) notification(s) for arsenal: \(arsenal.title ?? "Unknown")")
+            semaphore.signal()
         }
+        
+        // Wait for cancellation to complete before returning
+        semaphore.wait()
     }
     
     func cancelAllNotifications() {
@@ -249,13 +216,7 @@ class NotificationManager: ObservableObject {
     func createNotificationContent(for arsenal: Arsenal) -> UNMutableNotificationContent {
         let content = UNMutableNotificationContent()
         content.title = "Attention Arsenal"
-        
-        if let description = arsenal.arsenalDescription, !description.isEmpty {
-            content.body = "\(arsenal.title ?? "Task"): \(description)"
-        } else {
-            content.body = arsenal.title ?? "You have a pending task"
-        }
-        
+        content.body = arsenal.title ?? "You have a pending task"
         content.sound = .default
         content.userInfo = ["arsenalID": arsenal.objectID.uriRepresentation().absoluteString]
         

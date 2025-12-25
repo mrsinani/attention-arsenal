@@ -52,33 +52,21 @@ struct IntervalSelectionView: View {
             valuePickerView
             
         case .daily:
-            VStack(alignment: .leading, spacing: 12) {
-                // Time picker
-                DatePicker("Time", selection: Binding(
-                    get: {
-                        var components = DateComponents()
-                        components.hour = Int(intervalConfig.hour)
-                        components.minute = Int(intervalConfig.minute)
-                        return Calendar.current.date(from: components) ?? Date()
-                    },
-                    set: { date in
-                        let components = Calendar.current.dateComponents([.hour, .minute], from: date)
-                        intervalConfig.hour = Int16(components.hour ?? 9)
-                        intervalConfig.minute = Int16(components.minute ?? 0)
-                    }
-                ), displayedComponents: .hourAndMinute)
-                .datePickerStyle(.compact)
-                
-                // Days of week selection
-                Text("Days")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                WeekdaySelectionView(days: Binding(
-                    get: { intervalConfig.days },
-                    set: { intervalConfig.days = $0 }
-                ))
-            }
+            // Time picker
+            DatePicker("Time", selection: Binding(
+                get: {
+                    var components = DateComponents()
+                    components.hour = Int(intervalConfig.hour)
+                    components.minute = Int(intervalConfig.minute)
+                    return Calendar.current.date(from: components) ?? Date()
+                },
+                set: { date in
+                    let components = Calendar.current.dateComponents([.hour, .minute], from: date)
+                    intervalConfig.hour = Int16(components.hour ?? 9)
+                    intervalConfig.minute = Int16(components.minute ?? 0)
+                }
+            ), displayedComponents: .hourAndMinute)
+            .datePickerStyle(.compact)
             
         case .weekly:
             VStack(alignment: .leading, spacing: 12) {

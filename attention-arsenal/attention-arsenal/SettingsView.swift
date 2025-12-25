@@ -26,19 +26,6 @@ struct SettingsView: View {
                     }
                 }
                 
-                #if DEBUG
-                Section(header: Text("Testing")) {
-                    NavigationLink(destination: NotificationTestView()) {
-                        HStack {
-                            Image(systemName: "testtube.2")
-                                .foregroundColor(.orange)
-                                .frame(width: 30)
-                            Text("Test Notifications")
-                        }
-                    }
-                }
-                #endif
-                
                 Section(header: Text("About")) {
                     HStack {
                         Text("Version")
