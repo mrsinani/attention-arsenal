@@ -41,17 +41,15 @@ class NotificationManager: ObservableObject {
     func scheduleNotification(for arsenal: Arsenal) {
         let config = IntervalConfiguration(from: arsenal)
         
-        // Debug logging
+        #if DEBUG
         print("📅 Scheduling notification for: \(arsenal.title ?? "Unknown")")
         print("   Type: \(config.type.displayName), Value: \(config.value)")
         if let interval = config.timeIntervalInSeconds {
             print("   Time interval: \(interval) seconds (\(interval/60) minutes)")
         }
+        #endif
         
-        guard config.type != .none else {
-            print("   ⚠️ Type is .none, skipping")
-            return
-        }
+        guard config.type != .none else { return }
         
         // Cancel any existing notifications for this arsenal first
         cancelNotifications(for: arsenal)
@@ -63,7 +61,9 @@ class NotificationManager: ObservableObject {
         
         // Create triggers based on interval type
         let triggers = createTriggers(for: config, identifier: identifier)
+        #if DEBUG
         print("   Created \(triggers.count) trigger(s)")
+        #endif
         
         // Schedule all notification requests
         for (index, trigger) in triggers.enumerated() {
@@ -74,11 +74,13 @@ class NotificationManager: ObservableObject {
             )
             
             UNUserNotificationCenter.current().add(request) { error in
+                #if DEBUG
                 if let error = error {
                     print("Error scheduling notification for arsenal: \(error)")
                 } else {
                     print("Successfully scheduled notification for arsenal: \(arsenal.title ?? "Unknown")")
                 }
+                #endif
             }
         }
     }
@@ -108,15 +110,14 @@ class NotificationManager: ObservableObject {
             
             let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
             
-            // Debug: Show when notification will actually fire
+            #if DEBUG
             if let nextDate = trigger.nextTriggerDate() {
                 let formatter = DateFormatter()
                 formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
                 print("📅 Daily notification scheduled for \(config.hour):\(String(format: "%02d", config.minute))")
                 print("   Next trigger: \(formatter.string(from: nextDate))")
-            } else {
-                print("⚠️ Daily notification has no next trigger date!")
             }
+            #endif
             
             return [trigger]
             
@@ -124,13 +125,12 @@ class NotificationManager: ObservableObject {
             // STABLE: Weekly notification logic - tested and working as of Dec 2025
             // Creates one UNCalendarNotificationTrigger per selected weekday
             let selectedDays = config.days.selectedDays
-            guard !selectedDays.isEmpty else {
-                print("⚠️ Weekly notification has no days selected - skipping")
-                return []
-            }
+            guard !selectedDays.isEmpty else { return [] }
             
+            #if DEBUG
             let formatter = DateFormatter()
             formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            #endif
             
             return selectedDays.map { weekday in
                 var dateComponents = DateComponents()
@@ -140,10 +140,12 @@ class NotificationManager: ObservableObject {
                 
                 let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
                 
+                #if DEBUG
                 if let nextDate = trigger.nextTriggerDate() {
                     print("📅 Weekly notification for \(weekday.fullName) at \(config.hour):\(String(format: "%02d", config.minute))")
                     print("   Next trigger: \(formatter.string(from: nextDate))")
                 }
+                #endif
                 
                 return trigger
             }
@@ -152,10 +154,7 @@ class NotificationManager: ObservableObject {
             // STABLE: Monthly notification logic - tested and working as of Dec 2025
             // Creates one UNCalendarNotificationTrigger per selected day of month
             let selectedDays = config.monthDays.selectedDays
-            guard !selectedDays.isEmpty else {
-                print("⚠️ Monthly notification has no days selected - skipping")
-                return []
-            }
+            guard !selectedDays.isEmpty else { return [] }
             
             return selectedDays.map { day in
                 var dateComponents = DateComponents()
@@ -165,7 +164,9 @@ class NotificationManager: ObservableObject {
                 
                 let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
                 
-                print("Scheduled monthly notification for day \(day) at \(config.hour):\(String(format: "%02d", config.minute))")
+                #if DEBUG
+                print("📅 Monthly notification for day \(day) at \(config.hour):\(String(format: "%02d", config.minute))")
+                #endif
                 
                 return trigger
             }
@@ -186,7 +187,9 @@ class NotificationManager: ObservableObject {
                 .map { $0.identifier }
             
             UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiersToCancel)
+            #if DEBUG
             print("Cancelled \(identifiersToCancel.count) notification(s) for arsenal: \(arsenal.title ?? "Unknown")")
+            #endif
             semaphore.signal()
         }
         
@@ -196,7 +199,6 @@ class NotificationManager: ObservableObject {
     
     func cancelAllNotifications() {
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
-        print("Cancelled all pending notifications")
     }
     
     func updateNotification(for arsenal: Arsenal) {
@@ -276,8 +278,9 @@ class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
            let arsenalURL = URL(string: arsenalIDString),
            let arsenalID = PersistenceController.shared.container.persistentStoreCoordinator.managedObjectID(forURIRepresentation: arsenalURL) {
             
-            // You can add navigation logic here to open the specific arsenal
+            #if DEBUG
             print("Notification tapped for arsenal ID: \(arsenalID)")
+            #endif
         }
         
         completionHandler()
