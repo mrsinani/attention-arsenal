@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last Updated: [Current Date - Update when publishing]**
+**Last Updated: December 26, 2025**
 
 This privacy policy applies to the Attention Arsenal app (hereby referred to as "Application") for mobile devices that was created by Danaid Sinani (hereby referred to as "Service Provider") as an Open Source service. This service is intended for use "AS IS".
 
@@ -76,6 +76,15 @@ The Application uses OpenAI's API to provide intelligent features including:
 - Data remains on your device and in your iCloud (if iOS backup is enabled)
 - We cannot access your local data
 - Uninstalling the app deletes all local data
+
+**Statistics & Streaks (iCloud Sync):**
+
+- Your completion statistics (total completed, streaks) are stored using Apple's iCloud Key-Value Storage
+- This data syncs automatically across your devices signed into the same iCloud account
+- Statistics include: total arsenals completed, completion dates, streak counts
+- No personally identifiable information is stored
+- You can reset statistics within the app
+- This data is stored in your personal iCloud account and is not accessible to us
 
 **Your OpenAI API Key:**
 
@@ -226,6 +235,6 @@ This Application is open source. You can review the code to verify our privacy p
 
 ---
 
-_This privacy policy is effective as of [Current Date - Update when publishing]_
+_This privacy policy is effective as of December 26, 2025_
 
 _Generated with [App Privacy Policy Generator](https://app-privacy-policy-generator.nisrulz.com/) and customized for Attention Arsenal_
