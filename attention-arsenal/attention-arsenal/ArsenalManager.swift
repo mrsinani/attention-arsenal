@@ -114,6 +114,7 @@ class ArsenalManager: ObservableObject {
     }
     
     func toggleCompletion(for arsenal: Arsenal) -> Bool {
+        let wasCompleted = arsenal.isCompleted
         arsenal.isCompleted.toggle()
         
         do {
@@ -127,6 +128,13 @@ class ArsenalManager: ObservableObject {
                 if config.type != .none {
                     notificationManager.scheduleNotification(for: arsenal)
                 }
+            }
+            
+            // Update stats
+            if arsenal.isCompleted && !wasCompleted {
+                StatsManager.shared.recordCompletion()
+            } else if !arsenal.isCompleted && wasCompleted {
+                StatsManager.shared.undoCompletion()
             }
             
             // Reload widget to update completion status

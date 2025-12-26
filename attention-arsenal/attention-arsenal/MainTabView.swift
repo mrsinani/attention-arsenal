@@ -22,6 +22,12 @@ struct MainTabView: View {
                     Label("Emails", systemImage: "envelope.fill")
                 }
                 .tag(2)
+            
+            StatsView()
+                .tabItem {
+                    Label("Stats", systemImage: "chart.bar.fill")
+                }
+                .tag(3)
         }
     }
 }
