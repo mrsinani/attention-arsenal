@@ -2,12 +2,14 @@ import SwiftUI
 import UserNotifications
 import AppIntents
 import GoogleSignIn
+import MSAL
 
 @main
 struct attention_arsenalApp: App {
     let persistenceController = PersistenceController.shared
     @StateObject private var notificationManager = NotificationManager.shared
     @StateObject private var gmailAuthManager = GmailAuthManager.shared
+    @StateObject private var outlookAuthManager = OutlookAuthManager.shared
     
     init() {
         // Set up notification delegate
@@ -23,16 +25,23 @@ struct attention_arsenalApp: App {
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
                 .environmentObject(notificationManager)
                 .environmentObject(gmailAuthManager)
+                .environmentObject(outlookAuthManager)
                 .onOpenURL { url in
-                    // Handle Google Sign-In OAuth callback
-                    GIDSignIn.sharedInstance.handle(url)
+                    // Handle OAuth callbacks
+                    // Try Google Sign-In first
+                    if GIDSignIn.sharedInstance.handle(url) {
+                        return
+                    }
+                    // Try MSAL (Microsoft) if Google didn't handle it
+                    MSALPublicClientApplication.handleMSALResponse(url, sourceApplication: nil)
                 }
                 .task {
                     // Request notification permission on app startup
                     await requestNotificationPermissionOnStartup()
                     
-                    // Restore previous Google Sign-In if available
+                    // Restore previous sign-ins if available
                     await gmailAuthManager.restorePreviousSignIn()
+                    await outlookAuthManager.restorePreviousSignIn()
                 }
         }
     }

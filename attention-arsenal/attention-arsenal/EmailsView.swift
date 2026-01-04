@@ -1,65 +1,87 @@
 import SwiftUI
 
+// MARK: - Email Provider Enum
+
+enum EmailProvider: String, CaseIterable {
+    case gmail = "Gmail"
+    case outlook = "Outlook"
+    
+    var icon: String {
+        switch self {
+        case .gmail: return "envelope.fill"
+        case .outlook: return "envelope.badge.person.crop.fill"
+        }
+    }
+    
+    var color: Color {
+        switch self {
+        case .gmail: return .red
+        case .outlook: return .blue
+        }
+    }
+}
+
+// MARK: - Main Emails View
+
 struct EmailsView: View {
     @EnvironmentObject var gmailAuthManager: GmailAuthManager
+    @EnvironmentObject var outlookAuthManager: OutlookAuthManager
     @StateObject private var emailManager = EmailManager.shared
     @State private var selectedFilter: EmailFilter = .all
+    @State private var activeProvider: EmailProvider?
     
     var body: some View {
         NavigationView {
             Group {
-                if gmailAuthManager.isLoading {
-                    // Loading state while restoring session
+                if isLoading {
                     ProgressView("Checking sign-in status...")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if !gmailAuthManager.isSignedIn {
-                    // Not signed in - show sign-in prompt
-                    GmailSignInView()
-                } else {
-                    // Signed in - show emails
+                } else if let provider = activeProvider {
+                    // Show emails for the active provider
                     EmailListView(
                         emails: filteredEmails,
                         isLoading: emailManager.isLoading,
                         errorMessage: emailManager.errorMessage,
                         selectedFilter: $selectedFilter,
-                        onRefresh: { await loadEmails() }
+                        provider: provider,
+                        onRefresh: { await loadEmails(for: provider) },
+                        onSignOut: { signOut(from: provider) }
                     )
+                } else {
+                    // Show provider selection
+                    EmailProviderSelectionView()
                 }
             }
             .navigationTitle("Emails")
             .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                if gmailAuthManager.isSignedIn {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Menu {
-                            if let email = gmailAuthManager.userEmail {
-                                Text(email)
-                            }
-                            Divider()
-                            Button(role: .destructive) {
-                                signOut()
-                            } label: {
-                                Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
-                            }
-                        } label: {
-                            Image(systemName: "person.circle")
-                                .font(.title3)
-                        }
-                    }
-                }
-            }
             .task {
-                // Load emails when view appears and user is signed in
-                if gmailAuthManager.isSignedIn && emailManager.emails.isEmpty {
-                    await loadEmails()
+                // Determine which provider is active
+                updateActiveProvider()
+                
+                // Load emails if a provider is active
+                if let provider = activeProvider, emailManager.emails.isEmpty {
+                    await loadEmails(for: provider)
                 }
             }
             .onChange(of: gmailAuthManager.isSignedIn) { _, isSignedIn in
                 if isSignedIn {
+                    activeProvider = .gmail
                     Task {
-                        await loadEmails()
+                        await loadEmails(for: .gmail)
                     }
-                } else {
+                } else if activeProvider == .gmail {
+                    activeProvider = nil
+                    emailManager.clearEmails()
+                }
+            }
+            .onChange(of: outlookAuthManager.isSignedIn) { _, isSignedIn in
+                if isSignedIn {
+                    activeProvider = .outlook
+                    Task {
+                        await loadEmails(for: .outlook)
+                    }
+                } else if activeProvider == .outlook {
+                    activeProvider = nil
                     emailManager.clearEmails()
                 }
             }
@@ -67,24 +89,50 @@ struct EmailsView: View {
         .navigationViewStyle(.stack)
     }
     
+    private var isLoading: Bool {
+        gmailAuthManager.isLoading || outlookAuthManager.isLoading
+    }
+    
     private var filteredEmails: [EmailMessage] {
         selectedFilter.filter(emailManager.emails)
     }
     
-    private func loadEmails() async {
-        await emailManager.fetchEmails(limit: 100)
+    private func updateActiveProvider() {
+        if gmailAuthManager.isSignedIn {
+            activeProvider = .gmail
+        } else if outlookAuthManager.isSignedIn {
+            activeProvider = .outlook
+        } else {
+            activeProvider = nil
+        }
     }
     
-    private func signOut() {
-        gmailAuthManager.signOut()
+    private func loadEmails(for provider: EmailProvider) async {
+        switch provider {
+        case .gmail:
+            await emailManager.fetchGmailEmails(limit: 100)
+        case .outlook:
+            await emailManager.fetchOutlookEmails(limit: 100)
+        }
+    }
+    
+    private func signOut(from provider: EmailProvider) {
+        switch provider {
+        case .gmail:
+            gmailAuthManager.signOut()
+        case .outlook:
+            outlookAuthManager.signOut()
+        }
         emailManager.clearEmails()
+        activeProvider = nil
     }
 }
 
-// MARK: - Gmail Sign-In View
+// MARK: - Email Provider Selection View
 
-struct GmailSignInView: View {
+struct EmailProviderSelectionView: View {
     @EnvironmentObject var gmailAuthManager: GmailAuthManager
+    @EnvironmentObject var outlookAuthManager: OutlookAuthManager
     
     var body: some View {
         VStack(spacing: 32) {
@@ -97,44 +145,80 @@ struct GmailSignInView: View {
             
             // Title and description
             VStack(spacing: 12) {
-                Text("Connect Gmail")
+                Text("Connect Email")
                     .font(.title)
                     .fontWeight(.bold)
                 
-                Text("Sign in with your Google account to view your recent emails and get AI-powered reminder suggestions.")
+                Text("Sign in with your email provider to view recent emails and get AI-powered reminder suggestions.")
                     .font(.body)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             }
             
-            // Sign-in button
-            Button {
-                Task {
-                    await gmailAuthManager.signIn()
-                }
-            } label: {
-                HStack(spacing: 12) {
-                    if gmailAuthManager.isLoading {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                    } else {
-                        Image(systemName: "envelope.badge.person.crop")
-                            .font(.title3)
+            // Provider buttons
+            VStack(spacing: 16) {
+                // Gmail button
+                Button {
+                    Task {
+                        await gmailAuthManager.signIn()
                     }
-                    Text("Sign in with Google")
-                        .fontWeight(.semibold)
+                } label: {
+                    HStack(spacing: 12) {
+                        if gmailAuthManager.isLoading {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        } else {
+                            Image(systemName: "envelope.fill")
+                                .font(.title3)
+                        }
+                        Text("Continue with Gmail")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: 280)
+                    .padding()
+                    .background(Color.red.opacity(0.9))
+                    .foregroundColor(.white)
+                    .cornerRadius(12)
                 }
-                .frame(maxWidth: 280)
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(12)
+                .disabled(gmailAuthManager.isLoading || outlookAuthManager.isLoading)
+                
+                // Outlook button
+                Button {
+                    Task {
+                        await outlookAuthManager.signIn()
+                    }
+                } label: {
+                    HStack(spacing: 12) {
+                        if outlookAuthManager.isLoading {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        } else {
+                            Image(systemName: "envelope.badge.person.crop.fill")
+                                .font(.title3)
+                        }
+                        Text("Continue with Outlook")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: 280)
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(12)
+                }
+                .disabled(gmailAuthManager.isLoading || outlookAuthManager.isLoading)
             }
-            .disabled(gmailAuthManager.isLoading)
             
-            // Error message
+            // Error messages
             if let errorMessage = gmailAuthManager.errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundColor(.red)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            }
+            
+            if let errorMessage = outlookAuthManager.errorMessage {
                 Text(errorMessage)
                     .font(.caption)
                     .foregroundColor(.red)
@@ -166,17 +250,38 @@ struct EmailListView: View {
     let isLoading: Bool
     let errorMessage: String?
     @Binding var selectedFilter: EmailFilter
+    let provider: EmailProvider
     let onRefresh: () async -> Void
+    let onSignOut: () -> Void
     
     var body: some View {
         VStack(spacing: 0) {
-            // Filter picker
-            Picker("Filter", selection: $selectedFilter) {
-                ForEach(EmailFilter.allCases) { filter in
-                    Text(filter.rawValue).tag(filter)
+            // Provider indicator and filter
+            HStack {
+                // Provider badge
+                HStack(spacing: 6) {
+                    Image(systemName: provider.icon)
+                        .font(.caption)
+                    Text(provider.rawValue)
+                        .font(.caption)
+                        .fontWeight(.medium)
                 }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(provider.color.opacity(0.15))
+                .foregroundColor(provider.color)
+                .cornerRadius(8)
+                
+                Spacer()
+                
+                // Filter picker
+                Picker("Filter", selection: $selectedFilter) {
+                    ForEach(EmailFilter.allCases) { filter in
+                        Text(filter.rawValue).tag(filter)
+                    }
+                }
+                .pickerStyle(.menu)
             }
-            .pickerStyle(.menu)
             .padding()
             
             Divider()
@@ -200,6 +305,20 @@ struct EmailListView: View {
                 .listStyle(InsetGroupedListStyle())
                 .refreshable {
                     await onRefresh()
+                }
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    Text("Signed in to \(provider.rawValue)")
+                    Divider()
+                    Button(role: .destructive, action: onSignOut) {
+                        Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
+                    }
+                } label: {
+                    Image(systemName: "person.circle")
+                        .font(.title3)
                 }
             }
         }
@@ -350,4 +469,5 @@ struct ErrorView: View {
 #Preview {
     EmailsView()
         .environmentObject(GmailAuthManager.shared)
+        .environmentObject(OutlookAuthManager.shared)
 }

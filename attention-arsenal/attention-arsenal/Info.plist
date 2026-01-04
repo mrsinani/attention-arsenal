@@ -16,6 +16,17 @@
 				<string>com.googleusercontent.apps.1005694338190-9lhhatgpdb9u53vdshdpplpdessfq470</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>msauth.main.attention-arsenal</string>
+			</array>
+		</dict>
+	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>msauthv2</string>
+		<string>msauthv3</string>
 	</array>
 </dict>
 </plist>

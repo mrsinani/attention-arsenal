@@ -1,6 +1,6 @@
 import Foundation
 
-/// Manager for accessing and displaying emails via Gmail API
+/// Manager for accessing and displaying emails from Gmail or Outlook
 class EmailManager: ObservableObject {
     static let shared = EmailManager()
     
@@ -12,7 +12,7 @@ class EmailManager: ObservableObject {
     
     /// Fetch recent emails from Gmail
     /// - Parameter limit: Maximum number of emails to fetch (default: 100)
-    func fetchEmails(limit: Int = 100) async {
+    func fetchGmailEmails(limit: Int = 100) async {
         await MainActor.run {
             isLoading = true
             errorMessage = nil
@@ -31,6 +31,34 @@ class EmailManager: ObservableObject {
                 self.isLoading = false
             }
         }
+    }
+    
+    /// Fetch recent emails from Outlook
+    /// - Parameter limit: Maximum number of emails to fetch (default: 100)
+    func fetchOutlookEmails(limit: Int = 100) async {
+        await MainActor.run {
+            isLoading = true
+            errorMessage = nil
+        }
+        
+        do {
+            let fetchedEmails = try await OutlookService.shared.fetchEmails(maxResults: limit)
+            
+            await MainActor.run {
+                self.emails = fetchedEmails
+                self.isLoading = false
+            }
+        } catch {
+            await MainActor.run {
+                self.errorMessage = error.localizedDescription
+                self.isLoading = false
+            }
+        }
+    }
+    
+    /// Legacy method for backwards compatibility
+    func fetchEmails(limit: Int = 100) async {
+        await fetchGmailEmails(limit: limit)
     }
     
     /// Clear all emails (used when signing out)
@@ -76,4 +104,3 @@ struct EmailMessage: Identifiable {
     let date: Date
     let isRead: Bool
 }
-
