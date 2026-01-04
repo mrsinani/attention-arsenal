@@ -6,5 +6,16 @@
 	<string>This app needs full access to your calendar to display upcoming events and help you manage your tasks alongside your schedule.</string>
 	<key>NSSiriUsageDescription</key>
 	<string>Use Siri to quickly add reminders and manage your arsenals with voice commands.</string>
+	<key>GIDClientID</key>
+	<string>1005694338190-9lhhatgpdb9u53vdshdpplpdessfq470.apps.googleusercontent.com</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.1005694338190-9lhhatgpdb9u53vdshdpplpdessfq470</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

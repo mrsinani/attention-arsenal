@@ -6,6 +6,10 @@
 	<true/>
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.attentionarsenal.shared</string>
+	</array>
 	<key>com.apple.security.files.user-selected.read-only</key>
 	<true/>
 	<key>com.apple.security.network.client</key>
@@ -14,9 +18,9 @@
 	<true/>
 	<key>com.apple.security.personal-information.calendars</key>
 	<true/>
-	<key>com.apple.security.application-groups</key>
+	<key>keychain-access-groups</key>
 	<array>
-		<string>group.com.attentionarsenal.shared</string>
+		<string>$(AppIdentifierPrefix)com.microsoft.adalcache</string>
 	</array>
 </dict>
 </plist>

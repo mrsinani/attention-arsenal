@@ -1,95 +1,43 @@
 import Foundation
-import MessageUI
 
-/// Manager for accessing and displaying emails
+/// Manager for accessing and displaying emails via Gmail API
 class EmailManager: ObservableObject {
     static let shared = EmailManager()
     
     @Published var emails: [EmailMessage] = []
-    @Published var isAvailable: Bool = false
+    @Published var isLoading: Bool = false
+    @Published var errorMessage: String?
     
-    private init() {
-        // Check if Mail is available
-        isAvailable = MFMailComposeViewController.canSendMail()
-    }
+    private init() {}
     
-    /// Fetch recent emails
-    /// Note: iOS doesn't provide direct API access to read emails from the Mail app
-    /// This creates mock data for demonstration. In production, you would:
-    /// 1. Use a mail API (Gmail, Outlook, etc.) with OAuth
-    /// 2. Use server-side email fetching
-    /// 3. Use MailKit on macOS (not available on iOS)
-    func fetchEmails(limit: Int = 30) async {
-        // For now, we'll create sample emails to demonstrate the UI
-        // In a real app, you'd integrate with email services via their APIs
-        let sampleEmails = createSampleEmails(count: limit)
-        
+    /// Fetch recent emails from Gmail
+    /// - Parameter limit: Maximum number of emails to fetch (default: 100)
+    func fetchEmails(limit: Int = 100) async {
         await MainActor.run {
-            self.emails = sampleEmails
+            isLoading = true
+            errorMessage = nil
+        }
+        
+        do {
+            let fetchedEmails = try await GmailService.shared.fetchEmails(maxResults: limit)
+            
+            await MainActor.run {
+                self.emails = fetchedEmails
+                self.isLoading = false
+            }
+        } catch {
+            await MainActor.run {
+                self.errorMessage = error.localizedDescription
+                self.isLoading = false
+            }
         }
     }
     
-    /// Create sample emails for demonstration
-    private func createSampleEmails(count: Int) -> [EmailMessage] {
-        let subjects = [
-            "Team Meeting Tomorrow at 2 PM",
-            "Project Deadline Reminder",
-            "Review Required: Q4 Report",
-            "Dinner Plans This Friday?",
-            "Conference Registration Confirmation",
-            "Weekly Status Update Due",
-            "Client Presentation Feedback",
-            "Doctor Appointment Confirmation",
-            "Gym Membership Renewal",
-            "Book Club Meeting Next Week"
-        ]
-        
-        let senders = [
-            "Sarah Johnson",
-            "Mike Chen",
-            "Emily Davis",
-            "Alex Rodriguez",
-            "Jessica Lee",
-            "David Park",
-            "Rachel Kim",
-            "Dr. Smith",
-            "FitLife Gym",
-            "Book Club"
-        ]
-        
-        let bodies = [
-            "Hi team, just a reminder about our meeting tomorrow at 2 PM to discuss the quarterly goals.",
-            "The project deadline is coming up next week. Please make sure all deliverables are ready.",
-            "Could you please review the Q4 report and provide your feedback by end of week?",
-            "Hey! Are you free for dinner this Friday? Let me know what works for you.",
-            "Your registration for the tech conference has been confirmed. Event starts on March 15th.",
-            "Please submit your weekly status update by Friday EOD.",
-            "The client loved the presentation! They have a few minor changes they'd like to discuss.",
-            "Your appointment is scheduled for January 25th at 10:00 AM. Please arrive 15 minutes early.",
-            "Your gym membership is expiring soon. Renew now to continue enjoying our facilities.",
-            "Our next book club meeting is scheduled for next Tuesday at 7 PM."
-        ]
-        
-        var emails: [EmailMessage] = []
-        let now = Date()
-        
-        for i in 0..<min(count, subjects.count) {
-            // Create emails with varying dates in the past
-            let daysAgo = Double(i) * 0.5
-            let emailDate = Calendar.current.date(byAdding: .hour, value: -Int(daysAgo * 24), to: now) ?? now
-            
-            let email = EmailMessage(
-                id: UUID().uuidString,
-                subject: subjects[i],
-                sender: senders[i],
-                body: bodies[i],
-                date: emailDate,
-                isRead: i > 3 // Mark first few as unread
-            )
-            emails.append(email)
-        }
-        
-        return emails
+    /// Clear all emails (used when signing out)
+    @MainActor
+    func clearEmails() {
+        emails = []
+        errorMessage = nil
     }
 }
 

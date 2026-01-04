@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B147E7C92F09FBE200740E52 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = B147E7C82F09FBE200740E52 /* GoogleSignIn */; };
+		B147E7CB2F09FBE200740E52 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = B147E7CA2F09FBE200740E52 /* GoogleSignInSwift */; };
+		B147E7CE2F0A019A00740E52 /* MSAL in Frameworks */ = {isa = PBXBuildFile; productRef = B147E7CD2F0A019A00740E52 /* MSAL */; };
 		B15C23FB2EB1BBF600EF30AB /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B15C23FA2EB1BBF600EF30AB /* WidgetKit.framework */; };
 		B15C23FD2EB1BBF600EF30AB /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B15C23FC2EB1BBF600EF30AB /* SwiftUI.framework */; };
 		B15C240E2EB1BBF700EF30AB /* AttentionArsenalWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B15C23F82EB1BBF600EF30AB /* AttentionArsenalWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -120,6 +123,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B147E7C92F09FBE200740E52 /* GoogleSignIn in Frameworks */,
+				B147E7CE2F0A019A00740E52 /* MSAL in Frameworks */,
+				B147E7CB2F09FBE200740E52 /* GoogleSignInSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -204,6 +210,9 @@
 			);
 			name = "attention-arsenal";
 			packageProductDependencies = (
+				B147E7C82F09FBE200740E52 /* GoogleSignIn */,
+				B147E7CA2F09FBE200740E52 /* GoogleSignInSwift */,
+				B147E7CD2F0A019A00740E52 /* MSAL */,
 			);
 			productName = "attention-arsenal";
 			productReference = B14E77202E3590A50052BB04 /* attention-arsenal.app */;
@@ -312,6 +321,10 @@
 			);
 			mainGroup = B14E77172E3590A50052BB04;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				B147E7C32F09FA6000740E52 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				B147E7CC2F0A019A00740E52 /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B14E77212E3590A50052BB04 /* Products */;
 			projectDirPath = "";
@@ -812,6 +825,43 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B147E7C32F09FA6000740E52 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.0.0;
+			};
+		};
+		B147E7CC2F0A019A00740E52 /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/AzureAD/microsoft-authentication-library-for-objc";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.7.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B147E7C82F09FBE200740E52 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B147E7C32F09FA6000740E52 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		B147E7CA2F09FBE200740E52 /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B147E7C32F09FA6000740E52 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
+		B147E7CD2F0A019A00740E52 /* MSAL */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B147E7CC2F0A019A00740E52 /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */;
+			productName = MSAL;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = B14E77182E3590A50052BB04 /* Project object */;
 }
