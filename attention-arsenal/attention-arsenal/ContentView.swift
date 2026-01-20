@@ -9,6 +9,7 @@ struct ContentView: View {
     @State private var showingAddArsenal = false
     @State private var showingNotificationPermissionAlert = false
     @State private var showingSettings = false
+    @State private var showingStats = false
     @State private var isEditMode = false
     
     var body: some View {
@@ -17,11 +18,19 @@ struct ContentView: View {
                 .navigationTitle("Attention Arsenal")
                 .navigationBarTitleDisplayMode(.large)
                 .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
+                    ToolbarItemGroup(placement: .navigationBarLeading) {
                         Button(action: {
                             showingSettings = true
                         }) {
                             Image(systemName: "gearshape")
+                                .font(.title2)
+                                .foregroundColor(.primary)
+                        }
+                        
+                        Button(action: {
+                            showingStats = true
+                        }) {
+                            Image(systemName: "chart.bar.fill")
                                 .font(.title2)
                                 .foregroundColor(.primary)
                         }
@@ -51,6 +60,9 @@ struct ContentView: View {
                 }
                 .sheet(isPresented: $showingSettings) {
                     SettingsView()
+                }
+                .sheet(isPresented: $showingStats) {
+                    StatsView()
                 }
         }
         .navigationViewStyle(.stack)

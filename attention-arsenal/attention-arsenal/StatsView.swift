@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct StatsView: View {
+    @Environment(\.dismiss) private var dismiss
     @StateObject private var statsManager = StatsManager.shared
     
     var body: some View {
@@ -56,7 +57,15 @@ struct StatsView: View {
             }
             .background(Color(UIColor.systemGroupedBackground))
             .navigationTitle("Stats")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                }
+            }
         }
         .navigationViewStyle(.stack)
     }

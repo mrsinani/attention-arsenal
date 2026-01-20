@@ -10,6 +10,7 @@ struct attention_arsenalApp: App {
     @StateObject private var notificationManager = NotificationManager.shared
     @StateObject private var gmailAuthManager = GmailAuthManager.shared
     @StateObject private var outlookAuthManager = OutlookAuthManager.shared
+    @Environment(\.scenePhase) private var scenePhase
     
     init() {
         // Set up notification delegate
@@ -42,6 +43,12 @@ struct attention_arsenalApp: App {
                     // Restore previous sign-ins if available
                     await gmailAuthManager.restorePreviousSignIn()
                     await outlookAuthManager.restorePreviousSignIn()
+                }
+                .onChange(of: scenePhase) { _, newPhase in
+                    if newPhase == .background {
+                        // Backup stats to iCloud when app goes to background
+                        StatsManager.shared.forceBackupToiCloud()
+                    }
                 }
         }
     }

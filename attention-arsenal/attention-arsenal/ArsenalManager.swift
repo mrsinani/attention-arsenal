@@ -130,11 +130,9 @@ class ArsenalManager: ObservableObject {
                 }
             }
             
-            // Update stats
+            // Update stats - only increment when completing, never decrement
             if arsenal.isCompleted && !wasCompleted {
                 StatsManager.shared.recordCompletion()
-            } else if !arsenal.isCompleted && wasCompleted {
-                StatsManager.shared.undoCompletion()
             }
             
             // Reload widget to update completion status

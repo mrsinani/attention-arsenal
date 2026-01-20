@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last Updated: December 26, 2025**
+**Last Updated: January 19, 2026**
 
 This privacy policy applies to the Attention Arsenal app (hereby referred to as "Application") for mobile devices that was created by Danaid Sinani (hereby referred to as "Service Provider") as an Open Source service. This service is intended for use "AS IS".
 
@@ -22,6 +22,17 @@ This privacy policy applies to the Attention Arsenal app (hereby referred to as 
 - Calendar data is only used to display events within the app and suggest reminders
 - Calendar information is **not stored permanently** and is **not sent to external servers**
 - You can revoke calendar access at any time in iOS Settings
+
+**Email Information (Gmail/Outlook):**
+
+- If you choose to connect your email account, the Application can read your recent emails
+- The Application uses Google Sign-In (for Gmail) or Microsoft Authentication (for Outlook) to securely access your emails
+- Email data accessed includes: sender name, subject line, date, read status, and a preview of the email body
+- Email content is displayed within the app so you can create reminders for emails that need follow-up
+- When you tap "Add" on an email, the email's subject, sender, and preview are sent to OpenAI to generate a reminder suggestion
+- Email data is **not stored permanently** on our servers
+- You can disconnect your email account at any time within the app
+- Revoking access removes the app's ability to read your emails
 
 **Voice Commands (Siri):**
 
@@ -46,13 +57,15 @@ The Application uses OpenAI's API to provide intelligent features including:
 
 - Parsing natural language voice commands
 - Generating reminder suggestions from calendar events
+- Generating reminder suggestions from emails
 - Creating smart descriptions and notification intervals
 
 **What data is sent to OpenAI:**
 
 - Text of your voice commands (when using Siri)
 - Calendar event titles, dates, and descriptions (when creating reminders from events)
-- No personally identifiable information (name, email, phone number)
+- Email sender, subject, and preview text (when creating reminders from emails)
+- No personally identifiable information beyond what's in your calendar events or emails
 - No permanent identifiers
 
 **OpenAI's Data Usage:**
@@ -66,7 +79,7 @@ The Application uses OpenAI's API to provide intelligent features including:
 
 - You can choose not to use AI-powered features
 - Manually created reminders do not use OpenAI
-- Only specific features (Siri commands, "Add from Event" button) send data to OpenAI
+- Only specific features (Siri commands, "Add" button on events/emails) send data to OpenAI
 
 ### Local Storage
 
@@ -77,14 +90,13 @@ The Application uses OpenAI's API to provide intelligent features including:
 - We cannot access your local data
 - Uninstalling the app deletes all local data
 
-**Statistics & Streaks (iCloud Sync):**
+**Statistics & Streaks:**
 
-- Your completion statistics (total completed, streaks) are stored using Apple's iCloud Key-Value Storage
-- This data syncs automatically across your devices signed into the same iCloud account
+- Your completion statistics (total completed, streaks) are stored **locally on your device** using UserDefaults
 - Statistics include: total arsenals completed, completion dates, streak counts
+- Statistics are backed up to Apple's iCloud Key-Value Storage periodically for recovery purposes (e.g., if you reinstall the app or switch devices)
 - No personally identifiable information is stored
-- You can reset statistics within the app
-- This data is stored in your personal iCloud account and is not accessible to us
+- This backup data is stored in your personal iCloud account and is not accessible to us
 
 **Your OpenAI API Key:**
 
@@ -117,6 +129,8 @@ No, this Application does not collect, access, or track any location information
 - Only OpenAI receives data when you use AI-powered features
 - Apple processes Siri voice commands according to their privacy policy
 - Your calendar provider (Apple, Google, etc.) provides calendar data according to their privacy policy
+- Google processes Gmail authentication according to their privacy policy (if you connect Gmail)
+- Microsoft processes Outlook authentication according to their privacy policy (if you connect Outlook)
 
 ## Your Rights and Choices
 
@@ -124,6 +138,7 @@ No, this Application does not collect, access, or track any location information
 
 - Delete all your data by uninstalling the app
 - Revoke calendar permissions in iOS Settings → Privacy & Security → Calendars
+- Disconnect your Gmail or Outlook account within the app at any time
 - Disable Siri integration in iOS Settings → Siri & Search
 - Turn off notifications in iOS Settings → Notifications
 - Stop using AI features to prevent data being sent to OpenAI
@@ -133,6 +148,7 @@ No, this Application does not collect, access, or track any location information
 - Local data: Until you delete the app
 - OpenAI: According to their retention policy (typically 30 days)
 - Calendar access: No data is retained after you revoke permission
+- Email access: No data is retained after you disconnect your account
 
 ## Children's Privacy
 
@@ -206,11 +222,13 @@ By using the Application, you consent to:
 - Processing of your data as described in this policy
 - Data being sent to OpenAI when using AI-powered features
 - Apple processing Siri commands according to their policy
+- Google/Microsoft processing authentication when you connect Gmail/Outlook
 
 You can withdraw consent at any time by:
 
 - Uninstalling the application
 - Disabling specific permissions in iOS Settings
+- Disconnecting your email account within the app
 - Not using AI-powered features
 
 ## Third-Party Links and Services
@@ -219,6 +237,8 @@ This Privacy Policy applies only to Attention Arsenal. When you use features tha
 
 - **OpenAI:** [OpenAI Privacy Policy](https://openai.com/privacy)
 - **Apple Siri:** [Apple Privacy Policy](https://www.apple.com/privacy/)
+- **Google (Gmail):** [Google Privacy Policy](https://policies.google.com/privacy)
+- **Microsoft (Outlook):** [Microsoft Privacy Statement](https://privacy.microsoft.com/en-us/privacystatement)
 - **Calendar Providers:** Check your calendar provider's privacy policy
 
 ## Contact Us
@@ -235,6 +255,6 @@ This Application is open source. You can review the code to verify our privacy p
 
 ---
 
-_This privacy policy is effective as of December 26, 2025_
+_This privacy policy is effective as of January 19, 2026_
 
 _Generated with [App Privacy Policy Generator](https://app-privacy-policy-generator.nisrulz.com/) and customized for Attention Arsenal_

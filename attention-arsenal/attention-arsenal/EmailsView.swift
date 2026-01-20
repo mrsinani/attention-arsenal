@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreData
 
 // MARK: - Email Provider Enum
 
@@ -27,7 +28,8 @@ struct EmailsView: View {
     @EnvironmentObject var gmailAuthManager: GmailAuthManager
     @EnvironmentObject var outlookAuthManager: OutlookAuthManager
     @StateObject private var emailManager = EmailManager.shared
-    @State private var selectedFilter: EmailFilter = .all
+    @StateObject private var arsenalManager = ArsenalManager()
+    
     @State private var activeProvider: EmailProvider?
     
     var body: some View {
@@ -36,53 +38,44 @@ struct EmailsView: View {
                 if isLoading {
                     ProgressView("Checking sign-in status...")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if let provider = activeProvider {
-                    // Show emails for the active provider
-                    EmailListView(
-                        emails: filteredEmails,
-                        isLoading: emailManager.isLoading,
-                        errorMessage: emailManager.errorMessage,
-                        selectedFilter: $selectedFilter,
-                        provider: provider,
-                        onRefresh: { await loadEmails(for: provider) },
-                        onSignOut: { signOut(from: provider) }
-                    )
-                } else {
+                } else if activeProvider == nil {
                     // Show provider selection
                     EmailProviderSelectionView()
+                } else {
+                    // Show emails list
+                    EmailsListView(
+                        emails: emailManager.emails,
+                        isLoading: emailManager.isLoading,
+                        errorMessage: emailManager.errorMessage,
+                        provider: activeProvider!,
+                        arsenalManager: arsenalManager,
+                        onRefresh: { await refreshEmails() },
+                        onSignOut: { signOut() }
+                    )
                 }
             }
             .navigationTitle("Emails")
             .navigationBarTitleDisplayMode(.large)
             .task {
-                // Determine which provider is active
                 updateActiveProvider()
-                
-                // Load emails if a provider is active
-                if let provider = activeProvider, emailManager.emails.isEmpty {
-                    await loadEmails(for: provider)
+                if activeProvider != nil && emailManager.emails.isEmpty {
+                    await refreshEmails()
                 }
             }
             .onChange(of: gmailAuthManager.isSignedIn) { _, isSignedIn in
                 if isSignedIn {
                     activeProvider = .gmail
-                    Task {
-                        await loadEmails(for: .gmail)
-                    }
+                    Task { await refreshEmails() }
                 } else if activeProvider == .gmail {
-                    activeProvider = nil
-                    emailManager.clearEmails()
+                    resetState()
                 }
             }
             .onChange(of: outlookAuthManager.isSignedIn) { _, isSignedIn in
                 if isSignedIn {
                     activeProvider = .outlook
-                    Task {
-                        await loadEmails(for: .outlook)
-                    }
+                    Task { await refreshEmails() }
                 } else if activeProvider == .outlook {
-                    activeProvider = nil
-                    emailManager.clearEmails()
+                    resetState()
                 }
             }
         }
@@ -91,10 +84,6 @@ struct EmailsView: View {
     
     private var isLoading: Bool {
         gmailAuthManager.isLoading || outlookAuthManager.isLoading
-    }
-    
-    private var filteredEmails: [EmailMessage] {
-        selectedFilter.filter(emailManager.emails)
     }
     
     private func updateActiveProvider() {
@@ -107,24 +96,32 @@ struct EmailsView: View {
         }
     }
     
-    private func loadEmails(for provider: EmailProvider) async {
+    private func refreshEmails() async {
+        guard let provider = activeProvider else { return }
+        
         switch provider {
         case .gmail:
-            await emailManager.fetchGmailEmails(limit: 100)
+            await emailManager.fetchGmailEmails(limit: 50)
         case .outlook:
-            await emailManager.fetchOutlookEmails(limit: 100)
+            await emailManager.fetchOutlookEmails(limit: 50)
         }
     }
     
-    private func signOut(from provider: EmailProvider) {
-        switch provider {
+    private func signOut() {
+        switch activeProvider {
         case .gmail:
             gmailAuthManager.signOut()
         case .outlook:
             outlookAuthManager.signOut()
+        case .none:
+            break
         }
-        emailManager.clearEmails()
+        resetState()
+    }
+    
+    private func resetState() {
         activeProvider = nil
+        emailManager.clearEmails()
     }
 }
 
@@ -138,31 +135,25 @@ struct EmailProviderSelectionView: View {
         VStack(spacing: 32) {
             Spacer()
             
-            // Icon
-            Image(systemName: "envelope.fill")
+            Image(systemName: "envelope.badge.shield.half.filled")
                 .font(.system(size: 80))
                 .foregroundColor(.primary)
             
-            // Title and description
             VStack(spacing: 12) {
-                Text("Connect Email")
+                Text("Email Reminders")
                     .font(.title)
                     .fontWeight(.bold)
                 
-                Text("Sign in with your email provider to view recent emails and get AI-powered reminder suggestions.")
+                Text("Connect your email to create AI-powered reminders for emails that need follow-up.")
                     .font(.body)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             }
             
-            // Provider buttons
             VStack(spacing: 16) {
-                // Gmail button
                 Button {
-                    Task {
-                        await gmailAuthManager.signIn()
-                    }
+                    Task { await gmailAuthManager.signIn() }
                 } label: {
                     HStack(spacing: 12) {
                         if gmailAuthManager.isLoading {
@@ -183,11 +174,8 @@ struct EmailProviderSelectionView: View {
                 }
                 .disabled(gmailAuthManager.isLoading || outlookAuthManager.isLoading)
                 
-                // Outlook button
                 Button {
-                    Task {
-                        await outlookAuthManager.signIn()
-                    }
+                    Task { await outlookAuthManager.signIn() }
                 } label: {
                     HStack(spacing: 12) {
                         if outlookAuthManager.isLoading {
@@ -209,33 +197,18 @@ struct EmailProviderSelectionView: View {
                 .disabled(gmailAuthManager.isLoading || outlookAuthManager.isLoading)
             }
             
-            // Error messages
-            if let errorMessage = gmailAuthManager.errorMessage {
-                Text(errorMessage)
+            if let error = gmailAuthManager.errorMessage ?? outlookAuthManager.errorMessage {
+                Text(error)
                     .font(.caption)
                     .foregroundColor(.red)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             }
             
-            if let errorMessage = outlookAuthManager.errorMessage {
-                Text(errorMessage)
-                    .font(.caption)
-                    .foregroundColor(.red)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-            }
-            
-            // Privacy note
-            VStack(spacing: 8) {
-                Text("We only read your emails to suggest reminders.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Text("Your data stays on your device.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
+            Text("Click + on any email to create an AI-powered reminder.\nYour data stays on your device.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
             
             Spacer()
         }
@@ -243,22 +216,21 @@ struct EmailProviderSelectionView: View {
     }
 }
 
-// MARK: - Email List View
+// MARK: - Emails List View
 
-struct EmailListView: View {
+struct EmailsListView: View {
     let emails: [EmailMessage]
     let isLoading: Bool
     let errorMessage: String?
-    @Binding var selectedFilter: EmailFilter
     let provider: EmailProvider
+    let arsenalManager: ArsenalManager
     let onRefresh: () async -> Void
     let onSignOut: () -> Void
     
     var body: some View {
         VStack(spacing: 0) {
-            // Provider indicator and filter
+            // Provider badge header
             HStack {
-                // Provider badge
                 HStack(spacing: 6) {
                     Image(systemName: provider.icon)
                         .font(.caption)
@@ -274,13 +246,9 @@ struct EmailListView: View {
                 
                 Spacer()
                 
-                // Filter picker
-                Picker("Filter", selection: $selectedFilter) {
-                    ForEach(EmailFilter.allCases) { filter in
-                        Text(filter.rawValue).tag(filter)
-                    }
-                }
-                .pickerStyle(.menu)
+                Text("\(emails.count) emails")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
             .padding()
             
@@ -288,18 +256,35 @@ struct EmailListView: View {
             
             // Content
             if isLoading && emails.isEmpty {
-                ProgressView("Loading emails...")
+                ProgressView("Fetching emails...")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if let errorMessage = errorMessage, emails.isEmpty {
-                ErrorView(message: errorMessage, onRetry: {
-                    Task { await onRefresh() }
-                })
+            } else if let error = errorMessage, emails.isEmpty {
+                ScrollView {
+                    ErrorStateView(message: error, onRetry: {
+                        Task { await onRefresh() }
+                    })
+                }
+                .refreshable {
+                    await onRefresh()
+                }
             } else if emails.isEmpty {
-                EmptyEmailsView(filter: selectedFilter)
+                ScrollView {
+                    EmptyEmailsView()
+                }
+                .refreshable {
+                    await onRefresh()
+                }
             } else {
                 List {
-                    ForEach(emails) { email in
-                        EmailRow(email: email)
+                    ForEach(groupedEmails, id: \.date) { group in
+                        Section(header: Text(group.title)) {
+                            ForEach(group.emails) { email in
+                                EmailRow(
+                                    email: email,
+                                    arsenalManager: arsenalManager
+                                )
+                            }
+                        }
                     }
                 }
                 .listStyle(InsetGroupedListStyle())
@@ -311,7 +296,7 @@ struct EmailListView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
-                    Text("Signed in to \(provider.rawValue)")
+                    Text("Connected to \(provider.rawValue)")
                     Divider()
                     Button(role: .destructive, action: onSignOut) {
                         Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
@@ -323,69 +308,188 @@ struct EmailListView: View {
             }
         }
     }
+    
+    // Group emails by day
+    private var groupedEmails: [EmailGroup] {
+        let calendar = Calendar.current
+        let grouped = Dictionary(grouping: emails) { email in
+            calendar.startOfDay(for: email.date)
+        }
+        
+        return grouped.map { date, emails in
+            EmailGroup(date: date, emails: emails)
+        }.sorted { $0.date > $1.date } // Most recent first
+    }
+}
+
+struct EmailGroup {
+    let date: Date
+    let emails: [EmailMessage]
+    
+    var title: String {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let emailDate = calendar.startOfDay(for: date)
+        
+        if emailDate == today {
+            return "Today"
+        } else if emailDate == calendar.date(byAdding: .day, value: -1, to: today) {
+            return "Yesterday"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            return formatter.string(from: date)
+        }
+    }
 }
 
 // MARK: - Email Row
 
 struct EmailRow: View {
     let email: EmailMessage
+    let arsenalManager: ArsenalManager
+    
+    @State private var isCreatingReminder = false
+    @State private var showSuccessMessage = false
+    @State private var showErrorAlert = false
+    @State private var errorMessage = ""
+    @State private var isHidden = false
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Sender and date
-            HStack {
+        if !isHidden {
+            emailContent
+        }
+    }
+    
+    private var emailContent: some View {
+        HStack(alignment: .top, spacing: 12) {
+            // Unread indicator
+            Circle()
+                .fill(email.isRead ? Color.clear : Color.blue)
+                .frame(width: 8, height: 8)
+                .padding(.top, 6)
+            
+            VStack(alignment: .leading, spacing: 6) {
+                // Sender
                 Text(email.sender)
-                    .font(.subheadline)
+                    .font(.body)
                     .fontWeight(email.isRead ? .regular : .semibold)
+                    .lineLimit(1)
+                
+                // Subject
+                Text(email.subject)
+                    .font(.subheadline)
                     .foregroundColor(.primary)
                     .lineLimit(1)
                 
-                Spacer()
-                
-                Text(formatDate(email.date))
+                // Preview
+                Text(email.body)
                     .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+                
+                // Time
+                Text(timeAgo(from: email.date))
+                    .font(.caption2)
                     .foregroundColor(.secondary)
             }
             
-            // Subject
-            Text(email.subject)
-                .font(.body)
-                .fontWeight(email.isRead ? .regular : .medium)
-                .foregroundColor(.primary)
-                .lineLimit(2)
+            Spacer()
             
-            // Unread indicator
-            if !email.isRead {
-                HStack {
-                    Circle()
-                        .fill(Color.blue)
-                        .frame(width: 8, height: 8)
-                    Text("Unread")
-                        .font(.caption2)
-                        .foregroundColor(.blue)
+            // Add Reminder Button
+            Button(action: {
+                createAIReminder()
+            }) {
+                if isCreatingReminder {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                } else if showSuccessMessage {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                        .font(.title3)
+                } else {
+                    VStack(spacing: 2) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.title3)
+                        Text("Add")
+                            .font(.caption2)
+                    }
+                    .foregroundColor(.blue)
                 }
             }
+            .buttonStyle(PlainButtonStyle())
+            .disabled(isCreatingReminder || showSuccessMessage)
         }
         .padding(.vertical, 4)
+        .alert("Error", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
+        }
     }
     
-    private func formatDate(_ date: Date) -> String {
-        let calendar = Calendar.current
+    private func timeAgo(from date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
+    
+    /// Convert minutes to appropriate IntervalConfiguration
+    private func convertMinutesToIntervalConfig(_ minutes: Int32) -> IntervalConfiguration {
+        switch minutes {
+        case 5, 15, 30:
+            return IntervalConfiguration(type: .minutes, value: Int16(minutes))
+        case 60, 120, 240, 360, 720:
+            return IntervalConfiguration(type: .hours, value: Int16(minutes / 60))
+        case 1440:
+            return IntervalConfiguration.defaultDaily
+        default:
+            return IntervalConfiguration(type: .hours, value: 4)
+        }
+    }
+    
+    private func createAIReminder() {
+        isCreatingReminder = true
         
-        if calendar.isDateInToday(date) {
-            let formatter = DateFormatter()
-            formatter.timeStyle = .short
-            return formatter.string(from: date)
-        } else if calendar.isDateInYesterday(date) {
-            return "Yesterday"
-        } else if let daysAgo = calendar.dateComponents([.day], from: date, to: Date()).day, daysAgo < 7 {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "EEEE"
-            return formatter.string(from: date)
-        } else {
-            let formatter = DateFormatter()
-            formatter.dateStyle = .short
-            return formatter.string(from: date)
+        Task {
+            do {
+                // Generate reminder using AI
+                let suggestion = try await AIEmailReminderService.shared.generateReminder(for: email)
+                
+                // Create the arsenal with suggested details
+                await MainActor.run {
+                    let intervalConfig = convertMinutesToIntervalConfig(suggestion.notificationInterval)
+                    
+                    let arsenal = arsenalManager.createArsenal(
+                        title: suggestion.title,
+                        description: suggestion.description,
+                        intervalConfig: intervalConfig
+                    )
+                    
+                    isCreatingReminder = false
+                    
+                    if arsenal != nil {
+                        // Show success briefly
+                        showSuccessMessage = true
+                        
+                        // Hide the email after showing success
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                            withAnimation {
+                                isHidden = true
+                            }
+                        }
+                    } else {
+                        errorMessage = "Failed to create reminder"
+                        showErrorAlert = true
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isCreatingReminder = false
+                    errorMessage = error.localizedDescription
+                    showErrorAlert = true
+                }
+            }
         }
     }
 }
@@ -393,8 +497,6 @@ struct EmailRow: View {
 // MARK: - Empty State
 
 struct EmptyEmailsView: View {
-    let filter: EmailFilter
-    
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "tray")
@@ -405,7 +507,7 @@ struct EmptyEmailsView: View {
                 .font(.title2)
                 .fontWeight(.medium)
             
-            Text(emptyMessage)
+            Text("Your inbox appears to be empty.\nPull down to refresh.")
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -414,24 +516,11 @@ struct EmptyEmailsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
     }
-    
-    private var emptyMessage: String {
-        switch filter {
-        case .all:
-            return "No emails found in your inbox."
-        case .unread:
-            return "You're all caught up! No unread emails."
-        case .recent:
-            return "No emails from the last 7 days."
-        case .lastMonth:
-            return "No emails from the last month."
-        }
-    }
 }
 
-// MARK: - Error View
+// MARK: - Error State
 
-struct ErrorView: View {
+struct ErrorStateView: View {
     let message: String
     let onRetry: () -> Void
     
@@ -441,7 +530,7 @@ struct ErrorView: View {
                 .font(.system(size: 60))
                 .foregroundColor(.orange)
             
-            Text("Unable to Load Emails")
+            Text("Something Went Wrong")
                 .font(.title2)
                 .fontWeight(.medium)
             
