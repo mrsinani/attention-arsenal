@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p ~/.traycer/yolo_artifacts)",
+      "Bash(~/.traycer/yolo_artifacts/undefined.json)",
+      "Read(//Users/danaid/.traycer/**)"
+    ]
+  }
+}

@@ -8,9 +8,11 @@ enum IntervalType: Int16, CaseIterable, Identifiable {
     case daily = 3
     case weekly = 4
     case monthly = 5
-    
+    /// Non-repeating trigger at an explicit datetime (e.g. Siri "Wednesday at 8am")
+    case oneTime = 6
+
     var id: Int16 { rawValue }
-    
+
     var displayName: String {
         switch self {
         case .none: return "No notifications"
@@ -19,9 +21,10 @@ enum IntervalType: Int16, CaseIterable, Identifiable {
         case .daily: return "Daily"
         case .weekly: return "Weekly"
         case .monthly: return "Monthly"
+        case .oneTime: return "One-time"
         }
     }
-    
+
     var icon: String {
         switch self {
         case .none: return "bell.slash"
@@ -30,9 +33,10 @@ enum IntervalType: Int16, CaseIterable, Identifiable {
         case .daily: return "sun.max"
         case .weekly: return "calendar.badge.clock"
         case .monthly: return "calendar"
+        case .oneTime: return "bell.badge.circle"
         }
     }
-    
+
     /// Available values for this interval type
     var availableValues: [Int16] {
         switch self {
@@ -40,19 +44,20 @@ enum IntervalType: Int16, CaseIterable, Identifiable {
         case .minutes: return [5, 15, 30]
         case .hours: return [1, 2, 4, 6, 12]
         case .daily: return [1] // Every day (days selection handles which days)
-        case .weekly: return [1] // Always every week
+        case .weekly: return [1, 2] // 1 = every week, 2 = every 2 weeks (biweekly)
         case .monthly: return [1, 2, 3, 6, 12] // Every 1, 2, 3, 6, or 12 months
+        case .oneTime: return [] // Not applicable; uses targetDate
         }
     }
-    
+
     /// Whether this interval type needs time selection
     var needsTimeSelection: Bool {
         switch self {
-        case .none, .minutes, .hours: return false
+        case .none, .minutes, .hours, .oneTime: return false
         case .daily, .weekly, .monthly: return true
         }
     }
-    
+
     /// Whether this interval type needs day-of-week selection
     var needsDayOfWeekSelection: Bool {
         switch self {
@@ -60,7 +65,7 @@ enum IntervalType: Int16, CaseIterable, Identifiable {
         default: return false
         }
     }
-    
+
     /// Whether this interval type needs day-of-month selection
     var needsDayOfMonthSelection: Bool {
         self == .monthly
@@ -297,7 +302,9 @@ struct IntervalConfiguration {
     var minute: Int16
     var days: DaysBitmask
     var monthDays: MonthDaysBitmask
-    
+    /// Explicit fire datetime for .oneTime reminders. Stored in arsenal.startDate.
+    var targetDate: Date?
+
     /// Create configuration with smart defaults
     init(
         type: IntervalType = .none,
@@ -305,7 +312,8 @@ struct IntervalConfiguration {
         hour: Int16 = 9,
         minute: Int16 = 0,
         days: DaysBitmask = .weekdays,
-        monthDays: MonthDaysBitmask = .today
+        monthDays: MonthDaysBitmask = .today,
+        targetDate: Date? = nil
     ) {
         self.type = type
         self.value = value
@@ -313,8 +321,9 @@ struct IntervalConfiguration {
         self.minute = minute
         self.days = days
         self.monthDays = monthDays
+        self.targetDate = targetDate
     }
-    
+
     /// Create from Arsenal entity
     init(from arsenal: Arsenal) {
         self.type = IntervalType(rawValue: arsenal.intervalType) ?? .none
@@ -330,8 +339,14 @@ struct IntervalConfiguration {
             // Try to interpret notificationInterval as bitmask (for new data)
             self.monthDays = MonthDaysBitmask(Int32(arsenal.notificationInterval))
         }
+        // For oneTime reminders, recover the explicit fire date from startDate
+        if self.type == .oneTime {
+            self.targetDate = arsenal.startDate
+        } else {
+            self.targetDate = nil
+        }
     }
-    
+
     /// Apply configuration to Arsenal entity
     func apply(to arsenal: Arsenal) {
         arsenal.intervalType = type.rawValue
@@ -352,6 +367,10 @@ struct IntervalConfiguration {
             arsenal.notificationInterval = 0
             arsenal.notificationDayOfMonth = 1
         }
+        // Store oneTime fire date in startDate; leave startDate untouched for other types
+        if type == .oneTime {
+            arsenal.startDate = targetDate
+        }
     }
     
     /// Time interval in seconds for minutes/hours intervals
@@ -365,19 +384,33 @@ struct IntervalConfiguration {
             return nil
         }
     }
+
+    /// Intervals that pre-schedule a finite batch of calendar triggers (topped up on app foreground).
+    var usesBatchedScheduling: Bool {
+        switch type {
+        case .hours:
+            return true
+        case .weekly:
+            return value > 1
+        case .monthly:
+            return value > 1
+        default:
+            return false
+        }
+    }
     
     /// Human-readable summary of the interval
     var summary: String {
         switch type {
         case .none:
             return "No notifications"
-            
+
         case .minutes:
             return "Every \(value) minute\(value == 1 ? "" : "s")"
-            
+
         case .hours:
             return "Every \(value) hour\(value == 1 ? "" : "s")"
-            
+
         case .daily:
             let timeStr = formatTime(hour: hour, minute: minute)
             if days.value == DaysBitmask.allDays.value {
@@ -385,16 +418,27 @@ struct IntervalConfiguration {
             } else {
                 return "\(days.description) at \(timeStr)"
             }
-            
+
         case .weekly:
             let timeStr = formatTime(hour: hour, minute: minute)
-            return "Every week on \(days.description) at \(timeStr)"
-            
+            // value=1 → every week; value=2 → every 2 weeks (biweekly), etc.
+            let weekStr = value == 1 ? "Every week" : "Every \(value) weeks"
+            return "\(weekStr) on \(days.description) at \(timeStr)"
+
         case .monthly:
             let timeStr = formatTime(hour: hour, minute: minute)
             let monthStr = value == 1 ? "month" : "\(value) months"
             let dayStr = monthDays.description
             return "Every \(monthStr) on \(dayStr) at \(timeStr)"
+
+        case .oneTime:
+            if let date = targetDate {
+                let formatter = DateFormatter()
+                formatter.dateStyle = .medium
+                formatter.timeStyle = .short
+                return "Once on \(formatter.string(from: date))"
+            }
+            return "One-time reminder"
         }
     }
     
@@ -472,6 +516,8 @@ extension IntervalConfiguration {
             return defaultWeekly
         case .monthly:
             return defaultMonthly
+        case .oneTime:
+            return IntervalConfiguration(type: .oneTime, targetDate: nil)
         }
     }
 }

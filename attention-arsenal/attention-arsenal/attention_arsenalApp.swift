@@ -39,15 +39,22 @@ struct attention_arsenalApp: App {
                 .task {
                     // Request notification permission on app startup
                     await requestNotificationPermissionOnStartup()
-                    
+
                     // Restore previous sign-ins if available
                     await gmailAuthManager.restorePreviousSignIn()
                     await outlookAuthManager.restorePreviousSignIn()
+
+                    // Refill pre-scheduled notification batches on launch
+                    notificationManager.topUpBatchedNotificationsIfNeeded()
                 }
                 .onChange(of: scenePhase) { _, newPhase in
-                    if newPhase == .background {
-                        // Backup stats to iCloud when app goes to background
+                    switch newPhase {
+                    case .active:
+                        notificationManager.topUpBatchedNotificationsIfNeeded()
+                    case .background:
                         StatsManager.shared.forceBackupToiCloud()
+                    default:
+                        break
                     }
                 }
         }

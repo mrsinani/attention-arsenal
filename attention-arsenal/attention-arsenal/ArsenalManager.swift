@@ -15,14 +15,17 @@ class ArsenalManager: ObservableObject {
     func createArsenal(
         title: String,
         description: String? = nil,
-        intervalConfig: IntervalConfiguration = IntervalConfiguration.defaultDaily
+        intervalConfig: IntervalConfiguration = IntervalConfiguration.defaultDaily,
+        endDate: Date? = nil
     ) -> Arsenal? {
         let arsenal = Arsenal(context: viewContext)
         arsenal.title = title
         arsenal.arsenalDescription = description
         arsenal.createdDate = Date()
         arsenal.isCompleted = false
-        
+        // Persist event-linked end date so duplicate detection in EventsView can match it.
+        arsenal.endDate = endDate
+
         // Apply interval configuration
         intervalConfig.apply(to: arsenal)
         

@@ -59,7 +59,7 @@ class AIReminderService {
         // Clean the response - remove markdown code blocks if present
         var cleanedResponse = response
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        
+
         // Remove markdown code blocks
         if cleanedResponse.hasPrefix("```json") {
             cleanedResponse = cleanedResponse
@@ -71,25 +71,33 @@ class AIReminderService {
                 .replacingOccurrences(of: "```", with: "")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        
+
         guard let jsonData = cleanedResponse.data(using: .utf8) else {
             throw AIReminderError.invalidResponse
         }
-        
+
         do {
-            let suggestion = try JSONDecoder().decode(ReminderSuggestion.self, from: jsonData)
-            
+            var suggestion = try JSONDecoder().decode(ReminderSuggestion.self, from: jsonData)
+
             // Validate the interval is one of our supported values
             let validIntervals: [Int32] = [5, 15, 30, 60, 120, 240, 360, 720, 1440, 10080, 20160, 43200]
-            guard validIntervals.contains(suggestion.notificationInterval) else {
-                // Default to 1 hour if invalid
-                return ReminderSuggestion(
+            if !validIntervals.contains(suggestion.notificationInterval) {
+                suggestion = ReminderSuggestion(
                     title: suggestion.title,
                     description: suggestion.description,
                     notificationInterval: 60
                 )
             }
-            
+
+            // Derive an explicit one-time fire datetime from the event's start time minus the
+            // suggested lead interval, so the reminder fires at a predictable moment rather than
+            // as a generic repeating interval.
+            let offsetSeconds = TimeInterval(suggestion.notificationInterval) * 60
+            let fireDate = event.startDate.addingTimeInterval(-offsetSeconds)
+            if fireDate > Date() {
+                suggestion.targetDatetime = fireDate
+            }
+
             return suggestion
         } catch {
             // Fallback to a sensible default
@@ -144,6 +152,12 @@ struct ReminderSuggestion: Codable {
     let title: String
     let description: String
     let notificationInterval: Int32
+    /// Explicit one-time fire datetime derived from event/email context. Not part of JSON schema.
+    var targetDatetime: Date? = nil
+
+    enum CodingKeys: String, CodingKey {
+        case title, description, notificationInterval
+    }
 }
 
 enum AIReminderError: LocalizedError {

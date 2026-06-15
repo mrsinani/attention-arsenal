@@ -157,16 +157,22 @@ struct EventsList: View {
         .listStyle(InsetGroupedListStyle())
     }
     
-    // Check if an event already has a matching arsenal
+    // Check if an event already has a matching arsenal.
+    // Now that createArsenal persists endDate, this comparison is reliable.
     private func hasMatchingArsenal(for event: EKEvent) -> Bool {
-        // Check if any arsenal has an end date matching this event's end date
-        // (within 1 hour tolerance to account for variations)
         return arsenals.contains { arsenal in
-            guard let arsenalEndDate = arsenal.endDate else { return false }
-            
-            // Compare end dates within 1 hour tolerance
-            let timeDifference = abs(arsenalEndDate.timeIntervalSince(event.endDate))
-            return timeDifference < 3600 // Within 1 hour
+            // Primary check: end date match within 1 hour (most stable identifier available)
+            if let arsenalEndDate = arsenal.endDate {
+                let timeDiff = abs(arsenalEndDate.timeIntervalSince(event.endDate))
+                if timeDiff < 3600 { return true }
+            }
+            // Secondary check: start date match within 1 hour (covers edge cases where
+            // endDate wasn't persisted by older app versions)
+            if let arsenalStartDate = arsenal.startDate {
+                let timeDiff = abs(arsenalStartDate.timeIntervalSince(event.startDate))
+                if timeDiff < 3600 { return true }
+            }
+            return false
         }
     }
     
@@ -319,7 +325,7 @@ struct EventRow: View {
         return "\(startTime) - \(endTime)"
     }
     
-    /// Convert minutes to appropriate IntervalConfiguration
+    /// Fallback interval conversion used when no explicit targetDatetime is available.
     private func convertMinutesToIntervalConfig(_ minutes: Int32) -> IntervalConfiguration {
         switch minutes {
         case 5, 15, 30:
@@ -328,46 +334,49 @@ struct EventRow: View {
             return IntervalConfiguration(type: .hours, value: Int16(minutes / 60))
         case 1440: // Daily
             return IntervalConfiguration.defaultDaily
-        case 10080, 20160: // Weekly or Biweekly (use weekly)
+        case 10080: // Weekly
             return IntervalConfiguration.defaultWeekly
-        case 43200: // Monthly (approximate)
+        case 20160: // Biweekly — now properly supported by NotificationManager
+            return IntervalConfiguration(type: .weekly, value: 2, days: .today)
+        case 43200: // Monthly
             return IntervalConfiguration.defaultMonthly
         default:
-            // Default to 4 hours
             return IntervalConfiguration(type: .hours, value: 4)
         }
     }
-    
+
     private func createAIReminder() {
         isCreatingReminder = true
-        
+
         Task {
             do {
-                // Generate reminder using AI
+                // Generate reminder using AI; suggestion includes an explicit targetDatetime
+                // computed from event.startDate minus the suggested lead interval.
                 let suggestion = try await AIReminderService.shared.generateReminder(for: event)
-                
-                // Create the arsenal with suggested details
+
                 await MainActor.run {
-                    // Convert notification interval (in minutes) to IntervalConfiguration
-                    let intervalConfig = convertMinutesToIntervalConfig(suggestion.notificationInterval)
-                    
+                    // Prefer one-time scheduling when an explicit fire time is available.
+                    let intervalConfig: IntervalConfiguration
+                    if let targetDatetime = suggestion.targetDatetime, targetDatetime > Date() {
+                        intervalConfig = IntervalConfiguration(type: .oneTime, targetDate: targetDatetime)
+                    } else {
+                        intervalConfig = convertMinutesToIntervalConfig(suggestion.notificationInterval)
+                    }
+
+                    // Pass event.endDate so hasMatchingArsenal can detect duplicates.
                     let arsenal = arsenalManager.createArsenal(
                         title: suggestion.title,
                         description: suggestion.description,
-                        intervalConfig: intervalConfig
+                        intervalConfig: intervalConfig,
+                        endDate: event.endDate
                     )
-                    
+
                     isCreatingReminder = false
-                    
+
                     if arsenal != nil {
-                        // Show success briefly
                         showSuccessMessage = true
-                        
-                        // Hide the event after showing success
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                            withAnimation {
-                                isHidden = true
-                            }
+                            withAnimation { isHidden = true }
                             onReminderCreated()
                         }
                     } else {

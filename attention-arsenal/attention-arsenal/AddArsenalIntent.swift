@@ -38,7 +38,8 @@ struct AddArsenalIntent: AppIntent {
         let arsenal = arsenalManager.createArsenal(
             title: parsedArsenal.title,
             description: parsedArsenal.description,
-            intervalConfig: parsedArsenal.intervalConfig
+            intervalConfig: parsedArsenal.intervalConfig,
+            endDate: parsedArsenal.endDate
         )
         
         // Generate response message

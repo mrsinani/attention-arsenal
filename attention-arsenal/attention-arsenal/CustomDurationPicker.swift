@@ -7,9 +7,9 @@ struct IntervalSelectionView: View {
     
     var body: some View {
         Section(header: Text("Notifications")) {
-            // Interval Type Picker
+            // Interval Type Picker (.oneTime is set automatically by AI/Siri and not user-selectable)
             Picker("Reminder Type", selection: $intervalConfig.type) {
-                ForEach(IntervalType.allCases) { type in
+                ForEach(IntervalType.allCases.filter { $0 != .oneTime }) { type in
                     HStack {
                         Image(systemName: type.icon)
                         Text(type.displayName)
@@ -107,17 +107,17 @@ struct IntervalSelectionView: View {
                     }
                 }
                 .pickerStyle(.menu)
-                
+
                 // Calendar grid for day selection
                 Text("Days of month")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                
+
                 MonthDaysSelectionView(monthDays: Binding(
                     get: { intervalConfig.monthDays },
                     set: { intervalConfig.monthDays = $0 }
                 ))
-                
+
                 // Time picker
                 DatePicker("Time", selection: Binding(
                     get: {
@@ -134,6 +134,11 @@ struct IntervalSelectionView: View {
                 ), displayedComponents: .hourAndMinute)
                 .datePickerStyle(.compact)
             }
+
+        case .oneTime:
+            // One-time reminders use an explicit targetDate set by the AI/Siri parser;
+            // there is nothing for the user to configure here.
+            EmptyView()
         }
     }
     

@@ -415,7 +415,7 @@ struct EmailRow: View {
         return formatter.localizedString(for: date, relativeTo: Date())
     }
     
-    /// Convert minutes to appropriate IntervalConfiguration
+    /// Fallback interval conversion used when no explicit targetDatetime is available.
     private func convertMinutesToIntervalConfig(_ minutes: Int32) -> IntervalConfiguration {
         switch minutes {
         case 5, 15, 30:
@@ -428,36 +428,36 @@ struct EmailRow: View {
             return IntervalConfiguration(type: .hours, value: 4)
         }
     }
-    
+
     private func createAIReminder() {
         isCreatingReminder = true
-        
+
         Task {
             do {
-                // Generate reminder using AI
+                // suggestion.targetDatetime is set when the email mentions a deadline date.
                 let suggestion = try await AIEmailReminderService.shared.generateReminder(for: email)
-                
-                // Create the arsenal with suggested details
+
                 await MainActor.run {
-                    let intervalConfig = convertMinutesToIntervalConfig(suggestion.notificationInterval)
-                    
+                    // Prefer one-time scheduling when an explicit deadline datetime is available.
+                    let intervalConfig: IntervalConfiguration
+                    if let targetDatetime = suggestion.targetDatetime, targetDatetime > Date() {
+                        intervalConfig = IntervalConfiguration(type: .oneTime, targetDate: targetDatetime)
+                    } else {
+                        intervalConfig = convertMinutesToIntervalConfig(suggestion.notificationInterval)
+                    }
+
                     let arsenal = arsenalManager.createArsenal(
                         title: suggestion.title,
                         description: suggestion.description,
                         intervalConfig: intervalConfig
                     )
-                    
+
                     isCreatingReminder = false
-                    
+
                     if arsenal != nil {
-                        // Show success briefly
                         showSuccessMessage = true
-                        
-                        // Hide the email after showing success
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                            withAnimation {
-                                isHidden = true
-                            }
+                            withAnimation { isHidden = true }
                         }
                     } else {
                         errorMessage = "Failed to create reminder"

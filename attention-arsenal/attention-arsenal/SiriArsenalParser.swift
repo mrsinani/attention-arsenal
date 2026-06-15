@@ -24,47 +24,51 @@ class SiriArsenalParser {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEEE, MMMM d, yyyy"
         let todayString = formatter.string(from: today)
-        
+
         return """
         Today is \(todayString).
-        
+
         Parse this voice command into a reminder/task. Respond ONLY with valid JSON.
-        
+
         User said: "\(input)"
-        
+
         Extract the following:
         - A short title (max 5 words)
         - A helpful description
-        - An end date ONLY if a specific date/event is mentioned (null otherwise)
-        - Appropriate notification interval in minutes
-        
-        Date parsing rules for END DATE:
+        - An end date ONLY if a specific deadline/event date is mentioned (null otherwise)
+        - A targetDatetime ONLY if the user names a specific day+time to be reminded (e.g. "Wednesday at 8am", "tomorrow at 3pm", "Friday morning"); null for recurring or vague requests
+        - Appropriate notification interval in minutes (used when targetDatetime is null)
+
+        END DATE rules (endDate field, "YYYY-MM-DD"):
         - "tomorrow" = tomorrow's date
         - "next Friday", "this weekend" = calculate specific date
         - "in 3 days", "in 2 weeks" = calculate from today
         - "January 15", "Dec 25th" = specific date this year or next if passed
-        - "Halloween" = October 31
-        - "Christmas" = December 25
-        - NO specific date mentioned = null
-        
-        IMPORTANT: Arsenals start immediately when created. Only extract the END date if a specific event date is mentioned.
-        
-        Notification intervals (in minutes): 5, 15, 30, 60, 120, 240, 360, 720, 1440 (daily), 10080 (weekly), 20160 (biweekly), 43200 (monthly)
-        Choose based on urgency:
-        - Urgent/Soon: 30-60
-        - This week: 120-240
-        - Near future: 360-1440
-        - Regular reminders or far future events you want to be reminded about regularly: 10080 (weekly)
-        - Very long-term (months away): 20160 (biweekly) or 43200 (monthly)
-        
+        - "Halloween" = October 31 / "Christmas" = December 25
+        - NO specific deadline date mentioned = null
+
+        TARGET DATETIME rules (targetDatetime field, "YYYY-MM-DDTHH:mm:ss"):
+        - Use ONLY when the user explicitly names a specific day and/or time to be reminded
+        - "Wednesday at 8am" → next Wednesday at 08:00:00
+        - "tomorrow at 3pm" → tomorrow at 15:00:00
+        - "Friday morning" → next Friday at 09:00:00
+        - "every day at 9am", "every week", or no explicit time → null (use notificationInterval instead)
+        - If only a day is given with no time, default to 09:00:00
+
+        Notification intervals (in minutes) — used only when targetDatetime is null:
+        5, 15, 30, 60, 120, 240, 360, 720, 1440 (daily), 10080 (weekly), 20160 (biweekly), 43200 (monthly)
+        - Urgent/Soon: 30-60 | This week: 120-240 | Near future: 360-1440
+        - Regular/far-future: 10080 (weekly) | Very long-term: 20160 or 43200
+
         Respond with this EXACT JSON format:
         {
           "title": "short title here",
           "description": "helpful description",
           "endDate": "2025-01-25" or null,
-          "notificationInterval": 240
+          "notificationInterval": 240,
+          "targetDatetime": "2025-01-22T08:00:00" or null
         }
-        
+
         DO NOT ask questions. DO NOT add explanations. ONLY return the JSON.
         """
     }
@@ -95,30 +99,45 @@ class SiriArsenalParser {
             decoder.dateDecodingStrategy = .custom { decoder in
                 let container = try decoder.singleValueContainer()
                 let dateString = try container.decode(String.self)
-                
-                // Try to parse the date
+
                 let formatter = DateFormatter()
                 formatter.dateFormat = "yyyy-MM-dd"
-                
+
                 if let date = formatter.date(from: dateString) {
                     return date
                 }
-                
+
                 throw DecodingError.dataCorruptedError(
                     in: container,
                     debugDescription: "Date string does not match expected format"
                 )
             }
-            
+
             let parsed = try decoder.decode(ParsedArsenalResponse.self, from: jsonData)
-            
-            // Convert notification interval to IntervalConfiguration
-            let intervalConfig = convertMinutesToIntervalConfig(parsed.notificationInterval)
-            
+
+            // Resolve explicit targetDatetime to a one-time IntervalConfiguration when present.
+            var targetDate: Date? = nil
+            if let datetimeStr = parsed.targetDatetime {
+                let isoFmt = DateFormatter()
+                isoFmt.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+                isoFmt.locale = Locale(identifier: "en_US_POSIX")
+                targetDate = isoFmt.date(from: datetimeStr)
+            }
+
+            let intervalConfig: IntervalConfiguration
+            if let targetDate = targetDate, targetDate > Date() {
+                // Specific datetime intent → one-time non-repeating notification
+                intervalConfig = IntervalConfiguration(type: .oneTime, targetDate: targetDate)
+            } else {
+                // No explicit datetime → fall back to interval-based cadence
+                intervalConfig = convertMinutesToIntervalConfig(parsed.notificationInterval)
+            }
+
             return ParsedArsenal(
                 title: parsed.title,
                 description: parsed.description,
-                intervalConfig: intervalConfig
+                intervalConfig: intervalConfig,
+                endDate: parsed.endDate
             )
         } catch {
             // Fallback to simple parsing
@@ -130,14 +149,15 @@ class SiriArsenalParser {
         // Simple fallback when AI parsing fails
         let title = String(input.prefix(50))
         let description = "Voice reminder: \(input)"
-        
+
         // Default to 4 hours interval
         let intervalConfig = IntervalConfiguration(type: .hours, value: 4)
-        
+
         return ParsedArsenal(
             title: title,
             description: description,
-            intervalConfig: intervalConfig
+            intervalConfig: intervalConfig,
+            endDate: nil
         )
     }
     
@@ -169,6 +189,8 @@ struct ParsedArsenal {
     let title: String
     let description: String
     let intervalConfig: IntervalConfiguration
+    /// Optional deadline date for the task (e.g. "remind me before Christmas")
+    let endDate: Date?
 }
 
 private struct ParsedArsenalResponse: Codable {
@@ -176,6 +198,8 @@ private struct ParsedArsenalResponse: Codable {
     let description: String
     let endDate: Date?
     let notificationInterval: Int32
+    /// ISO-8601 datetime string for an explicit one-time fire time (e.g. "2026-03-25T08:00:00")
+    let targetDatetime: String?
 }
 
 enum SiriParserError: LocalizedError {
