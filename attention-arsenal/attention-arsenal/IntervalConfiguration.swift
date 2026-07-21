@@ -398,9 +398,34 @@ struct IntervalConfiguration {
             return false
         }
     }
-    
-    /// Human-readable summary of the interval
-    var summary: String {
+
+    /// Batched scheduling when a deferred start gate is set (repeating triggers ignore the gate).
+    func usesBatchedScheduling(deferredStart: Date?) -> Bool {
+        if deferredStart != nil {
+            switch type {
+            case .none, .oneTime, .minutes:
+                return false
+            default:
+                return true
+            }
+        }
+        return usesBatchedScheduling
+    }
+
+    /// Human-readable summary including optional deferred start prefix.
+    func summary(notificationStartDate: Date? = nil) -> String {
+        let intervalText = intervalSummary
+        guard let start = notificationStartDate, start > Date() else {
+            return intervalText
+        }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return "Starts \(formatter.string(from: start)) · \(intervalText)"
+    }
+
+    /// Human-readable summary of the interval only.
+    var intervalSummary: String {
         switch type {
         case .none:
             return "No notifications"
@@ -441,6 +466,9 @@ struct IntervalConfiguration {
             return "One-time reminder"
         }
     }
+
+    /// Backward-compatible alias.
+    var summary: String { intervalSummary }
     
     private func formatTime(hour: Int16, minute: Int16) -> String {
         let formatter = DateFormatter()

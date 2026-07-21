@@ -96,38 +96,66 @@ class NotificationManager: ObservableObject {
             }
         }
 
-        let batchedArsenals = activeArsenals.filter { $0.1.usesBatchedScheduling }
-        guard !batchedArsenals.isEmpty else { return }
+        guard !activeArsenals.isEmpty else { return }
 
         UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
             var totalPending = requests.count
 
-            for (arsenal, config) in batchedArsenals {
-                let baseId = self.baseIdentifier(for: arsenal)
-                let pendingForArsenal = requests.filter { $0.identifier.hasPrefix(baseId) }
-                let pendingCount = pendingForArsenal.count
+            // Activate arsenals whose deferred start time has passed but have no pending notifications.
+            for (arsenal, config) in activeArsenals {
+                if let start = arsenal.notificationStartDate, start > Date() { continue }
 
+                let baseId = self.baseIdentifier(for: arsenal)
+                let pendingCount = requests.filter { $0.identifier.hasPrefix(baseId) }.count
+                guard pendingCount == 0 else { continue }
+
+                self.scheduleNotification(for: arsenal)
                 let budget = self.perArsenalBatchBudget(
-                    batchedCount: batchedArsenals.count,
+                    batchedCount: activeArsenals.filter {
+                        IntervalConfiguration(from: $0.0).usesBatchedScheduling(deferredStart: $0.0.notificationStartDate)
+                    }.count,
                     totalPending: totalPending
                 )
-                let lowWaterMark = self.lowWaterMark(for: budget)
+                totalPending = min(Self.systemPendingLimit, totalPending + budget)
+            }
 
-                if pendingCount == 0 {
-                    self.scheduleNotification(for: arsenal, preferredBatchSize: budget)
-                    totalPending = min(Self.systemPendingLimit, totalPending + budget)
-                } else if pendingCount < lowWaterMark {
-                    let headroom = Self.systemPendingLimit - totalPending
-                    let toAdd = min(budget - pendingCount, headroom)
-                    guard toAdd > 0 else { continue }
+            let batchedArsenals = activeArsenals.filter {
+                $0.1.usesBatchedScheduling(deferredStart: $0.0.notificationStartDate)
+            }
+            guard !batchedArsenals.isEmpty else { return }
 
-                    let added = self.appendBatchedNotifications(
-                        for: arsenal,
-                        config: config,
-                        count: toAdd,
-                        existingPending: pendingForArsenal
+            UNUserNotificationCenter.current().getPendingNotificationRequests { refreshedRequests in
+                totalPending = refreshedRequests.count
+
+                for (arsenal, config) in batchedArsenals {
+                    if let start = arsenal.notificationStartDate, start > Date() { continue }
+
+                    let baseId = self.baseIdentifier(for: arsenal)
+                    let pendingForArsenal = refreshedRequests.filter { $0.identifier.hasPrefix(baseId) }
+                    let pendingCount = pendingForArsenal.count
+
+                    let budget = self.perArsenalBatchBudget(
+                        batchedCount: batchedArsenals.count,
+                        totalPending: totalPending
                     )
-                    totalPending += added
+                    let lowWaterMark = self.lowWaterMark(for: budget)
+
+                    if pendingCount == 0 {
+                        self.scheduleNotification(for: arsenal, preferredBatchSize: budget)
+                        totalPending = min(Self.systemPendingLimit, totalPending + budget)
+                    } else if pendingCount < lowWaterMark {
+                        let headroom = Self.systemPendingLimit - totalPending
+                        let toAdd = min(budget - pendingCount, headroom)
+                        guard toAdd > 0 else { continue }
+
+                        let added = self.appendBatchedNotifications(
+                            for: arsenal,
+                            config: config,
+                            count: toAdd,
+                            existingPending: pendingForArsenal
+                        )
+                        totalPending += added
+                    }
                 }
             }
         }
@@ -173,10 +201,13 @@ class NotificationManager: ObservableObject {
         let baseId = baseIdentifier(for: arsenal)
         let startIndex = nextNotificationIndex(from: existingPending, baseId: baseId)
         let pendingDates = pendingTriggerDates(from: existingPending)
+        let deferredStart = arsenal.notificationStartDate
         let triggers = createBatchedTriggers(
             for: config,
             batchSize: count,
-            continuingFrom: pendingDates
+            continuingFrom: pendingDates,
+            earliestFire: earliestFireDate(for: arsenal),
+            deferredStart: deferredStart
         )
         guard !triggers.isEmpty else { return 0 }
 
@@ -219,10 +250,24 @@ class NotificationManager: ObservableObject {
 
         guard config.type != .none else { return }
 
+        let deferredStart = arsenal.notificationStartDate
+
+        // Minutes use repeating interval triggers that cannot respect a future start gate.
+        if let start = deferredStart, start > Date(), config.type == .minutes {
+            cancelNotifications(for: arsenal)
+            #if DEBUG
+            print("   Deferred — minutes interval cannot pre-schedule before start time")
+            #endif
+            return
+        }
+
         cancelNotifications(for: arsenal)
 
+        let earliestFire = earliestFireDate(for: arsenal)
+        let usesBatch = config.usesBatchedScheduling(deferredStart: deferredStart)
+
         let batchSize: Int
-        if config.usesBatchedScheduling {
+        if usesBatch {
             if let preferredBatchSize {
                 batchSize = preferredBatchSize
             } else {
@@ -238,7 +283,12 @@ class NotificationManager: ObservableObject {
         content.categoryIdentifier = "ARSENAL_REMINDER"
 
         let identifier = baseIdentifier(for: arsenal)
-        let triggers = createTriggers(for: config, batchSize: batchSize)
+        let triggers = createTriggers(
+            for: config,
+            batchSize: batchSize,
+            earliestFire: earliestFire,
+            deferredStart: deferredStart
+        )
 
         #if DEBUG
         print("   Created \(triggers.count) trigger(s)")
@@ -263,6 +313,14 @@ class NotificationManager: ObservableObject {
         }
     }
 
+    private func earliestFireDate(for arsenal: Arsenal) -> Date {
+        if let start = arsenal.notificationStartDate {
+            if start > Date() { return start }
+            return max(Date(), start)
+        }
+        return Date()
+    }
+
     private func fetchActiveBatchedArsenalCount() -> Int {
         let context = PersistenceController.shared.container.viewContext
         var count = 1
@@ -271,7 +329,7 @@ class NotificationManager: ObservableObject {
             request.predicate = NSPredicate(format: "isCompleted == NO")
             do {
                 count = max(1, try context.fetch(request).filter {
-                    IntervalConfiguration(from: $0).usesBatchedScheduling
+                    IntervalConfiguration(from: $0).usesBatchedScheduling(deferredStart: $0.notificationStartDate)
                 }.count)
             } catch {
                 count = 1
@@ -280,9 +338,20 @@ class NotificationManager: ObservableObject {
         return count
     }
 
-    private func createTriggers(for config: IntervalConfiguration, batchSize: Int) -> [UNNotificationTrigger] {
-        if config.usesBatchedScheduling {
-            return createBatchedTriggers(for: config, batchSize: batchSize, continuingFrom: nil)
+    private func createTriggers(
+        for config: IntervalConfiguration,
+        batchSize: Int,
+        earliestFire: Date,
+        deferredStart: Date?
+    ) -> [UNNotificationTrigger] {
+        if config.usesBatchedScheduling(deferredStart: deferredStart) {
+            return createBatchedTriggers(
+                for: config,
+                batchSize: batchSize,
+                continuingFrom: nil,
+                earliestFire: earliestFire,
+                deferredStart: deferredStart
+            )
         }
 
         let userCalendar = Calendar(identifier: .gregorian)
@@ -383,7 +452,9 @@ class NotificationManager: ObservableObject {
     private func createBatchedTriggers(
         for config: IntervalConfiguration,
         batchSize: Int,
-        continuingFrom pendingDates: [Date]?
+        continuingFrom pendingDates: [Date]?,
+        earliestFire: Date,
+        deferredStart: Date?
     ) -> [UNNotificationTrigger] {
         let userCalendar = Calendar(identifier: .gregorian)
         let userTimeZone = TimeZone.current
@@ -395,10 +466,16 @@ class NotificationManager: ObservableObject {
             var fireDate: Date
             if let latest = pendingDates?.max() {
                 fireDate = latest.addingTimeInterval(timeInterval)
+            } else if deferredStart != nil {
+                fireDate = earliestFire
             } else {
                 fireDate = Date().addingTimeInterval(timeInterval)
             }
             for _ in 0..<batchSize {
+                guard fireDate > Date() else {
+                    fireDate = fireDate.addingTimeInterval(timeInterval)
+                    continue
+                }
                 var dc = userCalendar.dateComponents(in: userTimeZone, from: fireDate)
                 dc.second = 0
                 dc.calendar = userCalendar
@@ -408,9 +485,30 @@ class NotificationManager: ObservableObject {
             }
             return triggers
 
-        case .weekly where config.value > 1:
+        case .daily:
+            return createCalendarBatchedTriggers(
+                for: config,
+                batchSize: batchSize,
+                pendingDates: pendingDates,
+                earliestFire: earliestFire,
+                calendar: userCalendar,
+                timeZone: userTimeZone
+            )
+
+        case .weekly:
             let selectedDays = config.days.selectedDays
             guard !selectedDays.isEmpty else { return [] }
+
+            if config.value == 1 {
+                return createCalendarBatchedTriggers(
+                    for: config,
+                    batchSize: batchSize,
+                    pendingDates: pendingDates,
+                    earliestFire: earliestFire,
+                    calendar: userCalendar,
+                    timeZone: userTimeZone
+                )
+            }
 
             let intervalWeeks = Int(config.value)
             let countPerWeekday = max(1, batchSize / selectedDays.count)
@@ -431,10 +529,11 @@ class NotificationManager: ObservableObject {
                 if let latest = weekdayDates.max() {
                     nextDate = userCalendar.date(byAdding: .weekOfYear, value: intervalWeeks, to: latest)
                         ?? latest.addingTimeInterval(TimeInterval(intervalWeeks * 7 * 86400))
-                } else if let first = userCalendar.nextDate(
-                    after: Date(),
-                    matching: matchComponents,
-                    matchingPolicy: .nextTime
+                } else if let first = nextCalendarFire(
+                    after: earliestFire.addingTimeInterval(-1),
+                    config: config,
+                    calendar: userCalendar,
+                    requiredWeekday: weekday.calendarWeekday
                 ) {
                     nextDate = first
                 } else {
@@ -442,6 +541,11 @@ class NotificationManager: ObservableObject {
                 }
 
                 for _ in 0..<countPerWeekday {
+                    guard nextDate > Date() else {
+                        nextDate = userCalendar.date(byAdding: .weekOfYear, value: intervalWeeks, to: nextDate)
+                            ?? nextDate.addingTimeInterval(TimeInterval(intervalWeeks * 7 * 86400))
+                        continue
+                    }
                     var dc = userCalendar.dateComponents(in: userTimeZone, from: nextDate)
                     dc.second = 0
                     dc.calendar = userCalendar
@@ -453,33 +557,39 @@ class NotificationManager: ObservableObject {
             }
             return triggers
 
-        case .monthly where config.value > 1:
+        case .monthly:
             let selectedDays = config.monthDays.selectedDays
             guard !selectedDays.isEmpty else { return [] }
+
+            if config.value == 1 {
+                return createMonthlyBatchedTriggers(
+                    for: config,
+                    batchSize: batchSize,
+                    pendingDates: pendingDates,
+                    earliestFire: earliestFire,
+                    calendar: userCalendar,
+                    timeZone: userTimeZone,
+                    intervalMonths: 1
+                )
+            }
 
             let intervalMonths = Int(config.value)
             let countPerDay = max(1, batchSize / selectedDays.count)
             var triggers: [UNNotificationTrigger] = []
 
             for day in selectedDays {
-                var matchComponents = DateComponents()
-                matchComponents.day = day
-                matchComponents.hour = Int(config.hour)
-                matchComponents.minute = Int(config.minute)
-                matchComponents.second = 0
-
                 let dayDates = pendingDates?.filter {
                     userCalendar.component(.day, from: $0) == day
                 } ?? []
 
                 var nextDate: Date
                 if let latest = dayDates.max() {
-                    nextDate = userCalendar.date(byAdding: .month, value: intervalMonths, to: latest)
-                        ?? latest
-                } else if let first = userCalendar.nextDate(
-                    after: Date(),
-                    matching: matchComponents,
-                    matchingPolicy: .nextTime
+                    nextDate = userCalendar.date(byAdding: .month, value: intervalMonths, to: latest) ?? latest
+                } else if let first = nextMonthlyFire(
+                    after: earliestFire.addingTimeInterval(-1),
+                    config: config,
+                    calendar: userCalendar,
+                    day: day
                 ) {
                     nextDate = first
                 } else {
@@ -487,13 +597,16 @@ class NotificationManager: ObservableObject {
                 }
 
                 for _ in 0..<countPerDay {
+                    guard nextDate > Date() else {
+                        nextDate = userCalendar.date(byAdding: .month, value: intervalMonths, to: nextDate) ?? nextDate
+                        continue
+                    }
                     var dc = userCalendar.dateComponents(in: userTimeZone, from: nextDate)
                     dc.second = 0
                     dc.calendar = userCalendar
                     dc.timeZone = userTimeZone
                     triggers.append(UNCalendarNotificationTrigger(dateMatching: dc, repeats: false))
-                    nextDate = userCalendar.date(byAdding: .month, value: intervalMonths, to: nextDate)
-                        ?? nextDate
+                    nextDate = userCalendar.date(byAdding: .month, value: intervalMonths, to: nextDate) ?? nextDate
                 }
             }
             return triggers
@@ -501,6 +614,151 @@ class NotificationManager: ObservableObject {
         default:
             return []
         }
+    }
+
+    private func createCalendarBatchedTriggers(
+        for config: IntervalConfiguration,
+        batchSize: Int,
+        pendingDates: [Date]?,
+        earliestFire: Date,
+        calendar: Calendar,
+        timeZone: TimeZone
+    ) -> [UNNotificationTrigger] {
+        var triggers: [UNNotificationTrigger] = []
+        var searchAfter = pendingDates?.max() ?? earliestFire.addingTimeInterval(-1)
+        var generated = 0
+
+        while generated < batchSize {
+            guard let next = nextCalendarFire(
+                after: searchAfter,
+                config: config,
+                calendar: calendar,
+                requiredWeekday: nil
+            ), next > searchAfter else { break }
+
+            guard next > Date() else {
+                searchAfter = next
+                continue
+            }
+
+            var dc = calendar.dateComponents(in: timeZone, from: next)
+            dc.second = 0
+            dc.calendar = calendar
+            dc.timeZone = timeZone
+            triggers.append(UNCalendarNotificationTrigger(dateMatching: dc, repeats: false))
+            searchAfter = next
+            generated += 1
+        }
+
+        return triggers
+    }
+
+    private func createMonthlyBatchedTriggers(
+        for config: IntervalConfiguration,
+        batchSize: Int,
+        pendingDates: [Date]?,
+        earliestFire: Date,
+        calendar: Calendar,
+        timeZone: TimeZone,
+        intervalMonths: Int
+    ) -> [UNNotificationTrigger] {
+        let selectedDays = config.monthDays.selectedDays
+        guard !selectedDays.isEmpty else { return [] }
+
+        let countPerDay = max(1, batchSize / selectedDays.count)
+        var triggers: [UNNotificationTrigger] = []
+
+        for day in selectedDays {
+            let dayDates = pendingDates?.filter {
+                calendar.component(.day, from: $0) == day
+            } ?? []
+
+            var searchAfter = dayDates.max() ?? earliestFire.addingTimeInterval(-1)
+            var generated = 0
+
+            while generated < countPerDay {
+                guard let next = nextMonthlyFire(
+                    after: searchAfter,
+                    config: config,
+                    calendar: calendar,
+                    day: day
+                ), next > searchAfter else { break }
+
+                guard next > Date() else {
+                    searchAfter = next
+                    continue
+                }
+
+                var dc = calendar.dateComponents(in: timeZone, from: next)
+                dc.second = 0
+                dc.calendar = calendar
+                dc.timeZone = timeZone
+                triggers.append(UNCalendarNotificationTrigger(dateMatching: dc, repeats: false))
+                searchAfter = next
+                generated += 1
+            }
+        }
+
+        return triggers
+    }
+
+    /// Next fire on or after `after` matching the configured calendar schedule.
+    private func nextCalendarFire(
+        after: Date,
+        config: IntervalConfiguration,
+        calendar: Calendar,
+        requiredWeekday: Int?
+    ) -> Date? {
+        let selectedWeekdays: Set<Int>
+        switch config.type {
+        case .daily, .weekly:
+            if let requiredWeekday {
+                selectedWeekdays = [requiredWeekday]
+            } else {
+                selectedWeekdays = Set(config.days.selectedDays.map { $0.calendarWeekday })
+            }
+        default:
+            return nil
+        }
+
+        guard !selectedWeekdays.isEmpty else { return nil }
+
+        var probe = after.addingTimeInterval(1)
+        for _ in 0..<400 {
+            let weekday = calendar.component(.weekday, from: probe)
+            guard selectedWeekdays.contains(weekday) else {
+                probe = calendar.startOfDay(for: probe).addingTimeInterval(86400)
+                continue
+            }
+
+            var components = calendar.dateComponents([.year, .month, .day], from: probe)
+            components.hour = Int(config.hour)
+            components.minute = Int(config.minute)
+            components.second = 0
+
+            if let candidate = calendar.date(from: components), candidate > after {
+                return candidate
+            }
+
+            probe = calendar.startOfDay(for: probe).addingTimeInterval(86400)
+        }
+
+        return nil
+    }
+
+    private func nextMonthlyFire(
+        after: Date,
+        config: IntervalConfiguration,
+        calendar: Calendar,
+        day: Int
+    ) -> Date? {
+        var matchComponents = DateComponents()
+        matchComponents.day = day
+        matchComponents.hour = Int(config.hour)
+        matchComponents.minute = Int(config.minute)
+        matchComponents.second = 0
+
+        return calendar.nextDate(after: after, matching: matchComponents, matchingPolicy: .nextTime)
     }
 
     // MARK: - Notification Management
@@ -542,12 +800,31 @@ class NotificationManager: ObservableObject {
     // MARK: - Notification Content
     func createNotificationContent(for arsenal: Arsenal) -> UNMutableNotificationContent {
         let content = UNMutableNotificationContent()
+        let config = IntervalConfiguration(from: arsenal)
         content.title = "Attention Arsenal"
         content.body = arsenal.title ?? "You have a pending task"
         content.sound = .default
-        content.userInfo = ["arsenalID": arsenal.objectID.uriRepresentation().absoluteString]
+        content.userInfo = [
+            "arsenalID": arsenal.objectID.uriRepresentation().absoluteString,
+            "arsenalTitle": arsenal.title ?? "Untitled Arsenal",
+            "intervalSummary": config.summary(notificationStartDate: arsenal.notificationStartDate)
+        ]
 
         return content
+    }
+
+    /// Log when a scheduled notification is delivered (DEBUG builds only).
+    static func logNotificationFired(_ notification: UNNotification, context: String = "delivered") {
+        #if DEBUG
+        let content = notification.request.content
+        let userInfo = content.userInfo
+        let title = userInfo["arsenalTitle"] as? String ?? content.body
+        let interval = userInfo["intervalSummary"] as? String ?? "unknown interval"
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        let firedAt = formatter.string(from: Date())
+        print("🔔 Arsenal \(context) at \(firedAt) | \"\(title)\" | \(interval)")
+        #endif
     }
 
     // MARK: - Notification Statistics
@@ -581,14 +858,21 @@ class NotificationManager: ObservableObject {
 // MARK: - Notification Delegate
 class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
     static let shared = NotificationDelegate()
+    private static var recentlyDeliveredNotificationIDs = Set<String>()
 
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
+        Self.recentlyDeliveredNotificationIDs.insert(notification.request.identifier)
+        NotificationManager.logNotificationFired(notification, context: "delivered")
         completionHandler([.banner, .sound])
         NotificationManager.shared.topUpBatchedNotificationsIfNeeded()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            Self.recentlyDeliveredNotificationIDs.remove(notification.request.identifier)
+        }
     }
 
     func userNotificationCenter(
@@ -597,6 +881,10 @@ class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let userInfo = response.notification.request.content.userInfo
+        let requestID = response.notification.request.identifier
+        if !Self.recentlyDeliveredNotificationIDs.contains(requestID) {
+            NotificationManager.logNotificationFired(response.notification, context: "opened from notification")
+        }
 
         if let arsenalIDString = userInfo["arsenalID"] as? String,
            let arsenalURL = URL(string: arsenalIDString),

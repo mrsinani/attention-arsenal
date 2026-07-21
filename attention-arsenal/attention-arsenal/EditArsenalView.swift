@@ -12,7 +12,10 @@ struct EditArsenalView: View {
     @State private var title: String
     @State private var description: String
     @State private var intervalConfig: IntervalConfiguration
+    @State private var nudgeTiming: NudgeTiming
+    @State private var notificationStartDate: Date
     @State private var showingPermissionAlert = false
+    @State private var showingStartDateAlert = false
     @State private var isSaving = false
     
     // Character limits
@@ -26,6 +29,11 @@ struct EditArsenalView: View {
         self._title = State(initialValue: String(titleValue.prefix(50)))
         self._description = State(initialValue: String(descriptionValue.prefix(200)))
         self._intervalConfig = State(initialValue: IntervalConfiguration(from: arsenal))
+        let persistedStart = arsenal.notificationStartDate
+        self._nudgeTiming = State(initialValue: NudgeTimingSection.timing(from: persistedStart))
+        self._notificationStartDate = State(
+            initialValue: persistedStart ?? NudgeTimingSection.defaultStartDate()
+        )
     }
     
     var body: some View {
@@ -61,7 +69,12 @@ struct EditArsenalView: View {
                             .foregroundColor(description.count >= descriptionCharacterLimit ? .red : .secondary)
                     }
                 }
-                
+
+                NudgeTimingSection(
+                    nudgeTiming: $nudgeTiming,
+                    notificationStartDate: $notificationStartDate
+                )
+
                 IntervalSelectionView(
                     intervalConfig: $intervalConfig,
                     isAuthorized: notificationManager.isAuthorized
@@ -102,13 +115,28 @@ struct EditArsenalView: View {
             } message: {
                 Text("To receive reminders for this arsenal, please allow notifications.")
             }
+            .alert("Start Time Required", isPresented: $showingStartDateAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Please choose a start date and time in the future.")
+            }
         }
     }
-    
+
+    private var resolvedNotificationStartDate: Date? {
+        guard nudgeTiming == .later else { return nil }
+        return notificationStartDate
+    }
+
     private func updateArsenal() {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedDescription = description.trimmingCharacters(in: .whitespacesAndNewlines)
         let descriptionToUse = trimmedDescription.isEmpty ? nil : trimmedDescription
+
+        if nudgeTiming == .later && notificationStartDate <= Date() {
+            showingStartDateAlert = true
+            return
+        }
         
         // Check if notification permission is needed
         if intervalConfig.type != .none && !notificationManager.isAuthorized {
@@ -123,7 +151,9 @@ struct EditArsenalView: View {
             arsenal,
             title: trimmedTitle,
             description: descriptionToUse,
-            intervalConfig: intervalConfig
+            intervalConfig: intervalConfig,
+            shouldUpdateNotificationStartDate: true,
+            notificationStartDate: resolvedNotificationStartDate
         )
         
         if success {

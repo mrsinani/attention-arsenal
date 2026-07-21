@@ -423,7 +423,7 @@ struct ArsenalRowView: View {
                 // Display notification interval summary
                 let config = IntervalConfiguration(from: arsenal)
                 if config.type != .none {
-                    Text(config.summary)
+                    Text(config.summary(notificationStartDate: arsenal.notificationStartDate))
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
