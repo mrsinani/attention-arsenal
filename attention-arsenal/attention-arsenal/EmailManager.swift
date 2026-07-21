@@ -1,6 +1,6 @@
 import Foundation
 
-/// Manager for accessing and displaying emails from Gmail or Outlook
+/// Manager for accessing and displaying emails from Gmail
 class EmailManager: ObservableObject {
     static let shared = EmailManager()
     
@@ -20,29 +20,6 @@ class EmailManager: ObservableObject {
         
         do {
             let fetchedEmails = try await GmailService.shared.fetchEmails(maxResults: limit)
-            
-            await MainActor.run {
-                self.emails = fetchedEmails
-                self.isLoading = false
-            }
-        } catch {
-            await MainActor.run {
-                self.errorMessage = error.localizedDescription
-                self.isLoading = false
-            }
-        }
-    }
-    
-    /// Fetch recent emails from Outlook
-    /// - Parameter limit: Maximum number of emails to fetch (default: 100)
-    func fetchOutlookEmails(limit: Int = 100) async {
-        await MainActor.run {
-            isLoading = true
-            errorMessage = nil
-        }
-        
-        do {
-            let fetchedEmails = try await OutlookService.shared.fetchEmails(maxResults: limit)
             
             await MainActor.run {
                 self.emails = fetchedEmails

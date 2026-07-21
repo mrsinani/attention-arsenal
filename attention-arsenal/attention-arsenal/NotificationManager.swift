@@ -5,6 +5,10 @@ import CoreData
 class NotificationManager: ObservableObject {
     static let shared = NotificationManager()
 
+    /// Injectable clock. Tests override this to simulate an arbitrary "now" against the
+    /// real scheduling code — no separate test-only trigger logic to drift out of sync.
+    static var now: () -> Date = { Date() }
+
     /// iOS limit for pending local notifications app-wide.
     private static let systemPendingLimit = 64
     private static let minBatchSize = 3
@@ -102,11 +106,11 @@ class NotificationManager: ObservableObject {
             var totalPending = requests.count
 
             // Activate arsenals whose deferred start time has passed but have no pending notifications.
-            for (arsenal, config) in activeArsenals {
-                if let start = arsenal.notificationStartDate, start > Date() { continue }
+            for (arsenal, _) in activeArsenals {
+                if let start = arsenal.notificationStartDate, start > Self.now() { continue }
 
                 let baseId = self.baseIdentifier(for: arsenal)
-                let pendingCount = requests.filter { $0.identifier.hasPrefix(baseId) }.count
+                let pendingCount = requests.filter { self.belongsToArsenal($0.identifier, baseId: baseId) }.count
                 guard pendingCount == 0 else { continue }
 
                 self.scheduleNotification(for: arsenal)
@@ -128,10 +132,10 @@ class NotificationManager: ObservableObject {
                 totalPending = refreshedRequests.count
 
                 for (arsenal, config) in batchedArsenals {
-                    if let start = arsenal.notificationStartDate, start > Date() { continue }
+                    if let start = arsenal.notificationStartDate, start > Self.now() { continue }
 
                     let baseId = self.baseIdentifier(for: arsenal)
-                    let pendingForArsenal = refreshedRequests.filter { $0.identifier.hasPrefix(baseId) }
+                    let pendingForArsenal = refreshedRequests.filter { self.belongsToArsenal($0.identifier, baseId: baseId) }
                     let pendingCount = pendingForArsenal.count
 
                     let budget = self.perArsenalBatchBudget(
@@ -174,10 +178,18 @@ class NotificationManager: ObservableObject {
         "arsenal_\(arsenal.objectID.uriRepresentation().absoluteString)"
     }
 
+    /// Matches only this arsenal's own notification identifiers, anchored on the `_` index
+    /// separator. Core Data object IDs are raw incrementing digits (p5, p50, p500, ...), so a
+    /// bare `hasPrefix(baseId)` would also match p50/p500's notifications when acting on p5.
+    /// Internal (not private) so tests can verify the fix directly against string literals.
+    func belongsToArsenal(_ identifier: String, baseId: String) -> Bool {
+        identifier.hasPrefix(baseId + "_")
+    }
+
     private func nextNotificationIndex(from pending: [UNNotificationRequest], baseId: String) -> Int {
         let prefix = baseId + "_"
         let indices = pending.compactMap { request -> Int? in
-            guard request.identifier.hasPrefix(prefix) else { return nil }
+            guard belongsToArsenal(request.identifier, baseId: baseId) else { return nil }
             return Int(request.identifier.dropFirst(prefix.count))
         }
         return (indices.max() ?? -1) + 1
@@ -253,7 +265,7 @@ class NotificationManager: ObservableObject {
         let deferredStart = arsenal.notificationStartDate
 
         // Minutes use repeating interval triggers that cannot respect a future start gate.
-        if let start = deferredStart, start > Date(), config.type == .minutes {
+        if let start = deferredStart, start > Self.now(), config.type == .minutes {
             cancelNotifications(for: arsenal)
             #if DEBUG
             print("   Deferred — minutes interval cannot pre-schedule before start time")
@@ -313,12 +325,13 @@ class NotificationManager: ObservableObject {
         }
     }
 
-    private func earliestFireDate(for arsenal: Arsenal) -> Date {
+    /// Internal (not private) so tests can drive it directly with an injected `Self.now`.
+    func earliestFireDate(for arsenal: Arsenal) -> Date {
         if let start = arsenal.notificationStartDate {
-            if start > Date() { return start }
-            return max(Date(), start)
+            if start > Self.now() { return start }
+            return max(Self.now(), start)
         }
-        return Date()
+        return Self.now()
     }
 
     private func fetchActiveBatchedArsenalCount() -> Int {
@@ -338,7 +351,9 @@ class NotificationManager: ObservableObject {
         return count
     }
 
-    private func createTriggers(
+    /// Internal (not private) so tests can generate real triggers against an injected `Self.now`
+    /// instead of waiting on the actual clock.
+    func createTriggers(
         for config: IntervalConfiguration,
         batchSize: Int,
         earliestFire: Date,
@@ -366,7 +381,7 @@ class NotificationManager: ObservableObject {
             return [UNTimeIntervalNotificationTrigger(timeInterval: timeInterval, repeats: true)]
 
         case .oneTime:
-            guard let targetDate = config.targetDate, targetDate > Date() else { return [] }
+            guard let targetDate = config.targetDate, targetDate > Self.now() else { return [] }
             var components = userCalendar.dateComponents(in: userTimeZone, from: targetDate)
             components.second = 0
             components.calendar = userCalendar
@@ -449,7 +464,9 @@ class NotificationManager: ObservableObject {
 
     /// Pre-scheduled calendar triggers for batched interval types.
     /// Pass `continuingFrom` when topping up so new fires continue from the latest pending date.
-    private func createBatchedTriggers(
+    /// Internal (not private) so tests can generate real triggers against an injected `Self.now`
+    /// instead of waiting on the actual clock.
+    func createBatchedTriggers(
         for config: IntervalConfiguration,
         batchSize: Int,
         continuingFrom pendingDates: [Date]?,
@@ -469,10 +486,10 @@ class NotificationManager: ObservableObject {
             } else if deferredStart != nil {
                 fireDate = earliestFire
             } else {
-                fireDate = Date().addingTimeInterval(timeInterval)
+                fireDate = Self.now().addingTimeInterval(timeInterval)
             }
             for _ in 0..<batchSize {
-                guard fireDate > Date() else {
+                guard fireDate > Self.now() else {
                     fireDate = fireDate.addingTimeInterval(timeInterval)
                     continue
                 }
@@ -541,7 +558,7 @@ class NotificationManager: ObservableObject {
                 }
 
                 for _ in 0..<countPerWeekday {
-                    guard nextDate > Date() else {
+                    guard nextDate > Self.now() else {
                         nextDate = userCalendar.date(byAdding: .weekOfYear, value: intervalWeeks, to: nextDate)
                             ?? nextDate.addingTimeInterval(TimeInterval(intervalWeeks * 7 * 86400))
                         continue
@@ -597,7 +614,7 @@ class NotificationManager: ObservableObject {
                 }
 
                 for _ in 0..<countPerDay {
-                    guard nextDate > Date() else {
+                    guard nextDate > Self.now() else {
                         nextDate = userCalendar.date(byAdding: .month, value: intervalMonths, to: nextDate) ?? nextDate
                         continue
                     }
@@ -636,7 +653,7 @@ class NotificationManager: ObservableObject {
                 requiredWeekday: nil
             ), next > searchAfter else { break }
 
-            guard next > Date() else {
+            guard next > Self.now() else {
                 searchAfter = next
                 continue
             }
@@ -684,7 +701,7 @@ class NotificationManager: ObservableObject {
                     day: day
                 ), next > searchAfter else { break }
 
-                guard next > Date() else {
+                guard next > Self.now() else {
                     searchAfter = next
                     continue
                 }
@@ -758,25 +775,39 @@ class NotificationManager: ObservableObject {
         matchComponents.minute = Int(config.minute)
         matchComponents.second = 0
 
-        return calendar.nextDate(after: after, matching: matchComponents, matchingPolicy: .nextTime)
+        // .nextTime silently rolls an invalid date (e.g. day 31 in April) forward to the 1st of
+        // the next month at midnight — losing both the day and the configured time. .strict
+        // skips months that don't have the requested day entirely, landing on day 31 at the
+        // configured hour in the next month that does (e.g. May 31 9am, not May 1 12am).
+        return calendar.nextDate(after: after, matching: matchComponents, matchingPolicy: .strict)
     }
 
     // MARK: - Notification Management
     func cancelNotifications(for arsenal: Arsenal) {
         let baseIdentifier = baseIdentifier(for: arsenal)
+        let center = UNUserNotificationCenter.current()
 
         let semaphore = DispatchSemaphore(value: 0)
 
-        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+        center.getPendingNotificationRequests { requests in
             let identifiersToCancel = requests
-                .filter { $0.identifier.hasPrefix(baseIdentifier) }
+                .filter { self.belongsToArsenal($0.identifier, baseId: baseIdentifier) }
                 .map { $0.identifier }
+            center.removePendingNotificationRequests(withIdentifiers: identifiersToCancel)
 
-            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiersToCancel)
-            #if DEBUG
-            print("Cancelled \(identifiersToCancel.count) notification(s) for arsenal: \(arsenal.title ?? "Unknown")")
-            #endif
-            semaphore.signal()
+            // Also clear already-delivered notifications sitting in Notification Center —
+            // otherwise a batched reminder that fired moments before a delete/complete stays
+            // visible and reads as "it still notified me after I finished it."
+            center.getDeliveredNotifications { delivered in
+                let deliveredToCancel = delivered
+                    .filter { self.belongsToArsenal($0.request.identifier, baseId: baseIdentifier) }
+                    .map { $0.request.identifier }
+                center.removeDeliveredNotifications(withIdentifiers: deliveredToCancel)
+                #if DEBUG
+                print("Cancelled \(identifiersToCancel.count) pending, \(deliveredToCancel.count) delivered notification(s) for arsenal: \(arsenal.title ?? "Unknown")")
+                #endif
+                semaphore.signal()
+            }
         }
 
         semaphore.wait()
@@ -784,6 +815,7 @@ class NotificationManager: ObservableObject {
 
     func cancelAllNotifications() {
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
     }
 
     func updateNotification(for arsenal: Arsenal) {

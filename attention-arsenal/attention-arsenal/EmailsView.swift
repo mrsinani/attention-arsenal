@@ -5,19 +5,16 @@ import CoreData
 
 enum EmailProvider: String, CaseIterable {
     case gmail = "Gmail"
-    case outlook = "Outlook"
-    
+
     var icon: String {
         switch self {
         case .gmail: return "envelope.fill"
-        case .outlook: return "envelope.badge.person.crop.fill"
         }
     }
-    
+
     var color: Color {
         switch self {
         case .gmail: return .red
-        case .outlook: return .blue
         }
     }
 }
@@ -26,19 +23,18 @@ enum EmailProvider: String, CaseIterable {
 
 struct EmailsView: View {
     @EnvironmentObject var gmailAuthManager: GmailAuthManager
-    @EnvironmentObject var outlookAuthManager: OutlookAuthManager
     @StateObject private var emailManager = EmailManager.shared
     @StateObject private var arsenalManager = ArsenalManager()
-    
+
+    // ponytail: Gmail sign-in is disabled (see EmailProviderSelectionView) and Outlook/MSAL
+    // support was removed, so no provider can ever go active right now. Re-enable Gmail
+    // (commented-out block at the bottom of this file) when this tab should work again.
     @State private var activeProvider: EmailProvider?
-    
+
     var body: some View {
         NavigationView {
             Group {
-                if isLoading {
-                    ProgressView("Checking sign-in status...")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if activeProvider == nil {
+                if activeProvider == nil {
                     // Show provider selection
                     EmailProviderSelectionView()
                 } else {
@@ -57,52 +53,22 @@ struct EmailsView: View {
             .navigationTitle("Emails")
             .navigationBarTitleDisplayMode(.large)
             .task {
-                updateActiveProvider()
                 if activeProvider != nil && emailManager.emails.isEmpty {
                     await refreshEmails()
-                }
-            }
-            // Gmail onChange disabled for now
-            .onChange(of: outlookAuthManager.isSignedIn) { _, isSignedIn in
-                if isSignedIn {
-                    activeProvider = .outlook
-                    Task { await refreshEmails() }
-                } else if activeProvider == .outlook {
-                    resetState()
                 }
             }
         }
         .navigationViewStyle(.stack)
     }
-    
-    private var isLoading: Bool {
-        outlookAuthManager.isLoading
-    }
-    
-    private func updateActiveProvider() {
-        // Gmail disabled for now - only check Outlook
-        if outlookAuthManager.isSignedIn {
-            activeProvider = .outlook
-        } else {
-            activeProvider = nil
-        }
-    }
-    
+
     private func refreshEmails() async {
-        guard activeProvider == .outlook else { return }
-        
-        // Gmail disabled for now - only fetch Outlook
-        await emailManager.fetchOutlookEmails(limit: 50)
+        guard activeProvider != nil else { return }
     }
-    
+
     private func signOut() {
-        // Gmail disabled for now - only handle Outlook
-        if activeProvider == .outlook {
-            outlookAuthManager.signOut()
-        }
         resetState()
     }
-    
+
     private func resetState() {
         activeProvider = nil
         emailManager.clearEmails()
@@ -113,8 +79,7 @@ struct EmailsView: View {
 
 struct EmailProviderSelectionView: View {
     @EnvironmentObject var gmailAuthManager: GmailAuthManager
-    @EnvironmentObject var outlookAuthManager: OutlookAuthManager
-    
+
     var body: some View {
         VStack(spacing: 32) {
             Spacer()
@@ -136,28 +101,6 @@ struct EmailProviderSelectionView: View {
             }
             
             VStack(spacing: 16) {
-                Button {
-                    Task { await outlookAuthManager.signIn() }
-                } label: {
-                    HStack(spacing: 12) {
-                        if outlookAuthManager.isLoading {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        } else {
-                            Image(systemName: "envelope.badge.person.crop.fill")
-                                .font(.title3)
-                        }
-                        Text("Continue with Outlook")
-                            .fontWeight(.semibold)
-                    }
-                    .frame(maxWidth: 280)
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
-                }
-                .disabled(outlookAuthManager.isLoading)
-                
                 // Gmail - Coming Soon
                 VStack(spacing: 4) {
                     HStack(spacing: 12) {
@@ -176,14 +119,6 @@ struct EmailProviderSelectionView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-            }
-            
-            if let error = outlookAuthManager.errorMessage {
-                Text(error)
-                    .font(.caption)
-                    .foregroundColor(.red)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
             }
             
             Text("Click + on any email to create an AI-powered reminder.\nYour data stays on your device.")
@@ -538,26 +473,18 @@ struct ErrorStateView: View {
 
 // MARK: - Gmail Code (Disabled - Uncomment to re-enable)
 /*
- 
+
 // To re-enable Gmail, replace the relevant sections with this code:
 
-// 1. In EmailsView - updateActiveProvider():
-private func updateActiveProvider() {
-    if gmailAuthManager.isSignedIn {
-        activeProvider = .gmail
-    } else if outlookAuthManager.isSignedIn {
-        activeProvider = .outlook
-    } else {
-        activeProvider = nil
+// 1. In EmailsView - add activeProvider assignment in .task:
+.task {
+    if gmailAuthManager.isSignedIn { activeProvider = .gmail }
+    if activeProvider != nil && emailManager.emails.isEmpty {
+        await refreshEmails()
     }
 }
 
-// 2. In EmailsView - isLoading:
-private var isLoading: Bool {
-    gmailAuthManager.isLoading || outlookAuthManager.isLoading
-}
-
-// 3. In EmailsView - add this onChange after .task:
+// 2. In EmailsView - add this onChange after .task:
 .onChange(of: gmailAuthManager.isSignedIn) { _, isSignedIn in
     if isSignedIn {
         activeProvider = .gmail
@@ -567,32 +494,21 @@ private var isLoading: Bool {
     }
 }
 
-// 4. In EmailsView - refreshEmails():
+// 3. In EmailsView - refreshEmails():
 private func refreshEmails() async {
-    guard let provider = activeProvider else { return }
-    
-    switch provider {
-    case .gmail:
-        await emailManager.fetchGmailEmails(limit: 50)
-    case .outlook:
-        await emailManager.fetchOutlookEmails(limit: 50)
-    }
+    guard activeProvider == .gmail else { return }
+    await emailManager.fetchGmailEmails(limit: 50)
 }
 
-// 5. In EmailsView - signOut():
+// 4. In EmailsView - signOut():
 private func signOut() {
-    switch activeProvider {
-    case .gmail:
+    if activeProvider == .gmail {
         gmailAuthManager.signOut()
-    case .outlook:
-        outlookAuthManager.signOut()
-    case .none:
-        break
     }
     resetState()
 }
 
-// 6. In EmailProviderSelectionView - Gmail button (replace the Coming Soon section):
+// 5. In EmailProviderSelectionView - Gmail button (replace the Coming Soon section):
 Button {
     Task { await gmailAuthManager.signIn() }
 } label: {
@@ -613,15 +529,14 @@ Button {
     .foregroundColor(.white)
     .cornerRadius(12)
 }
-.disabled(gmailAuthManager.isLoading || outlookAuthManager.isLoading)
+.disabled(gmailAuthManager.isLoading)
 
-// 7. In EmailProviderSelectionView - error message:
-if let error = gmailAuthManager.errorMessage ?? outlookAuthManager.errorMessage {
+// 6. In EmailProviderSelectionView - error message:
+if let error = gmailAuthManager.errorMessage {
 
 */
 
 #Preview {
     EmailsView()
         .environmentObject(GmailAuthManager.shared)
-        .environmentObject(OutlookAuthManager.shared)
 }

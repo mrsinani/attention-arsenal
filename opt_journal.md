@@ -52,9 +52,9 @@ Copy the block below, paste it directly under this line, fill it in. Newest week
 
 | Date | Hrs | Product | Task | Degree | Evidence |
 |------|-----|---------|------|--------|----------|
-| 2026-07-21 | 3 | Attention Arsenal | Reworked notification scheduling for per-interval nudge timing; added NudgeTimingSection UI; set up OPT activity journal + repo instructions | SE, PL | `commit 66c88aa` |
+| 2026-07-21 | 3 | Attention Arsenal | Reworked notification scheduling for per-interval nudge timing; added NudgeTimingSection UI; set up OPT activity journal + repo instructions; fixed notification-identifier collision bug (arsenal p5 vs p50) and stale delivered-notification cleanup on complete/delete; fixed monthly day-31 mis-fire bug (`Calendar` `.nextTime` → `.strict`); added `NotificationManagerTests` unit suite with injectable clock; removed MSAL/Outlook integration (Emails tab now Gmail-only, pending re-enable); bumped app to v1.7 (build 9) and submitted App Store update | SE, PL | `commit 66c88aa`; App Store Connect build 1.7 (9) uploaded 2026-07-21 |
 
-**Summary:** Shipped per-interval nudge timing for Attention Arsenal notifications and set up the OPT activity journal. Applied software engineering and programming languages coursework.
+**Summary:** Shipped per-interval nudge timing for Attention Arsenal notifications, set up the OPT activity journal, then diagnosed and fixed three real notification-scheduling bugs (cross-arsenal ID collision, notifications surviving delete/complete, monthly day-31 date mis-fire), added a regression test suite driving the real scheduling code via an injected clock, removed the MSAL/Outlook dependency causing App Store upload failures, and submitted v1.7 for review. Applied software engineering and programming languages coursework.
 
 ---
 
@@ -69,4 +69,5 @@ Copy the block below, paste it directly under this line, fill it in. Newest week
 
 | Date | Milestone |
 |------|-----------|
+| 2026-07-21 | Attention Arsenal v1.7 (build 9) submitted to App Store Connect — notification scheduling bug fixes |
 | YYYY-MM-DD | e.g., FinePrint feature X shipped / first paying user / App Store update live |
