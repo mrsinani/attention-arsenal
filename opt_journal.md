@@ -48,16 +48,13 @@ Copy the block below, paste it directly under this line, fill it in. Newest week
 
 <!-- ADD NEW WEEKS BELOW THIS LINE -->
 
-### Week of 2026-07-20 → 2026-07-26 — Total: 9.5 hrs
+### Week of 2026-07-20 → 2026-07-26 — Total: 3 hrs
 
 | Date | Hrs | Product | Task | Degree | Evidence |
 |------|-----|---------|------|--------|----------|
-| 2026-07-21 | 3 | FinePrint | Built GraphQL resolver for contract-category endpoint | FSD, SE | `commit a1b2c3d` |
-| 2026-07-21 | __ | Attention Arsenal | Reworked notification scheduling for per-interval nudge timing; added NudgeTimingSection UI; set up OPT activity journal + repo instructions | SE, PL | `commit 66c88aa` |
-| 2026-07-22 | 2.5 | Attention Arsenal | Fixed Core Data sync bug; added notification scheduling | PL | `commit e4f5g6h` |
-| 2026-07-24 | 4 | FinePrint | Deployed PII anonymization pipeline update | SE | `commit i7j8k9l` + deploy log |
+| 2026-07-21 | 3 | Attention Arsenal | Reworked notification scheduling for per-interval nudge timing; added NudgeTimingSection UI; set up OPT activity journal + repo instructions | SE, PL | `commit 66c88aa` |
 
-**Summary:** Advanced FinePrint's API layer and shipped a deployment; resolved a persistence bug in Attention Arsenal. All work applied core CS coursework in software engineering and full-stack development.
+**Summary:** Shipped per-interval nudge timing for Attention Arsenal notifications and set up the OPT activity journal. Applied software engineering and programming languages coursework.
 
 ---
 
