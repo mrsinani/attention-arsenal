@@ -2,6 +2,26 @@ import SwiftUI
 import CoreData
 import WidgetKit
 
+/// Capsule background for the centered toolbar buttons. A `.principal` toolbar item is a plain
+/// custom view, so it doesn't pick up the system's automatic Liquid Glass pill the way regular
+/// leading/trailing toolbar items do — we apply it ourselves.
+private struct ToolbarPill: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            // GlassEffectContainer owns the morph animation when a child presents/dismisses
+            // (the filter Menu). Without it the effect is re-created on dismiss and can land
+            // on the default rounded-rect shape instead of the capsule. The outer clipShape is
+            // a belt-and-braces guard so the pill can never render square mid-transition.
+            GlassEffectContainer {
+                content.glassEffect(.regular, in: .capsule)
+            }
+            .clipShape(Capsule())
+        } else {
+            content.background(.regularMaterial, in: Capsule())
+        }
+    }
+}
+
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @StateObject private var arsenalManager = ArsenalManager()
@@ -11,50 +31,88 @@ struct ContentView: View {
     @State private var showingSettings = false
     @State private var showingStats = false
     @State private var isEditMode = false
-    
+
+    /// Persisted so the list opens on whichever filter you last used.
+    @AppStorage("arsenalNudgeFilter") private var nudgeFilterRaw = NudgeFilter.all.rawValue
+    private var nudgeFilter: NudgeFilter { NudgeFilter(rawValue: nudgeFilterRaw) ?? .all }
+
+    /// Only used to decide whether the Select button belongs in the toolbar. The list itself
+    /// has its own fetch request; this one just needs to know empty vs not.
+    @FetchRequest(sortDescriptors: []) private var arsenals: FetchedResults<Arsenal>
+
+    /// Select is pointless when the active filter hides everything.
+    private var hasVisibleArsenals: Bool { arsenals.contains { nudgeFilter.matches($0) } }
+
     var body: some View {
         NavigationView {
-            ArsenalListView(isEditMode: $isEditMode)
+            ArsenalListView(isEditMode: $isEditMode, nudgeFilter: nudgeFilter)
+                // Centered .principal pill in the bar, with the large title on its own row below.
                 .navigationTitle("Attention Arsenal")
                 .navigationBarTitleDisplayMode(.large)
                 .toolbar {
-                    ToolbarItemGroup(placement: .navigationBarLeading) {
-                        Button(action: {
-                            showingSettings = true
-                        }) {
-                            Image(systemName: "gearshape")
-                                .font(.title2)
-                                .foregroundColor(.primary)
-                        }
-                        
-                        Button(action: {
-                            showingStats = true
-                        }) {
-                            Image(systemName: "chart.bar.fill")
-                                .font(.title2)
-                                .foregroundColor(.primary)
-                        }
-                    }
-                    
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        if !isEditMode {
+                    // One ToolbarItem holding an HStack: .principal renders a single view, so a
+                    // ToolbarItemGroup here would drop everything after the first button.
+                    ToolbarItem(placement: .principal) {
+                        HStack(spacing: 22) {
                             Button(action: {
-                                showingAddArsenal = true
+                                showingSettings = true
                             }) {
-                                Image(systemName: "plus")
+                                Image(systemName: "gearshape")
                                     .font(.title2)
                                     .foregroundColor(.primary)
                             }
+
+                            Button(action: {
+                                showingStats = true
+                            }) {
+                                Image(systemName: "chart.bar.fill")
+                                    .font(.title2)
+                                    .foregroundColor(.primary)
+                            }
+
+                            Menu {
+                                Picker("Filter", selection: $nudgeFilterRaw) {
+                                    ForEach(NudgeFilter.allCases) { filter in
+                                        Label(filter.label, systemImage: filter.icon)
+                                            .tag(filter.rawValue)
+                                    }
+                                }
+                            } label: {
+                                HStack(spacing: 3) {
+                                    Text(nudgeFilter.shortLabel)
+                                    Image(systemName: "chevron.down")
+                                        .font(.caption2.weight(.semibold))
+                                }
+                                .foregroundColor(.primary)
+                            }
+
+                            if !isEditMode {
+                                Button(action: {
+                                    showingAddArsenal = true
+                                }) {
+                                    Image(systemName: "plus")
+                                        .font(.title2)
+                                        .foregroundColor(.primary)
+                                }
+                            }
+
+                            if hasVisibleArsenals {
+                                Button(isEditMode ? "Done" : "Select") {
+                                    withAnimation {
+                                        isEditMode.toggle()
+                                    }
+                                }
+                                .foregroundColor(.primary)
+                            }
                         }
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 9)
+                        .modifier(ToolbarPill())
                     }
                 }
-                .sheet(isPresented: $showingAddArsenal, onDismiss: {
-                    // Trigger a small delay to ensure Core Data changes are processed
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        // This will trigger the @FetchRequest to refresh
-                        viewContext.refreshAllObjects()
-                    }
-                }) {
+                // ArsenalManager saves on this same viewContext, so @FetchRequest inserts the
+                // new row on its own — no manual refresh needed on dismiss.
+                .sheet(isPresented: $showingAddArsenal) {
                     AddArsenalView()
                         .environment(\.managedObjectContext, viewContext)
                 }
@@ -107,18 +165,24 @@ struct ArsenalListView: View {
         animation: .default
     ) private var arsenals: FetchedResults<Arsenal>
     @State private var selectedArsenal: Arsenal?
-    @State private var refreshTrigger = UUID()
     @Binding var isEditMode: Bool
+    let nudgeFilter: NudgeFilter
     @State private var selectedArsenalIDs: Set<NSManagedObjectID> = []
     @State private var showingDeleteConfirmation = false
-    
+
+    /// The rows actually on screen. Everything below operates on this, not the raw fetch,
+    /// so selection and counts stay consistent with what the filter is showing.
+    private var visibleArsenals: [Arsenal] {
+        arsenals.filter { nudgeFilter.matches($0) }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Selection toolbar when in edit mode
-            if isEditMode && !arsenals.isEmpty {
+            if isEditMode && !visibleArsenals.isEmpty {
                 SelectionToolbar(
                     selectedCount: selectedArsenalIDs.count,
-                    totalCount: arsenals.count,
+                    totalCount: visibleArsenals.count,
                     onSelectAll: selectAll,
                     onSelectCompleted: selectCompleted,
                     onDeselectAll: deselectAll,
@@ -127,10 +191,10 @@ struct ArsenalListView: View {
             }
             
             List {
-                if arsenals.isEmpty {
-                    EmptyStateView()
+                if visibleArsenals.isEmpty {
+                    EmptyStateView(filter: nudgeFilter)
                 } else {
-                    ForEach(arsenals, id: \.objectID) { arsenal in
+                    ForEach(visibleArsenals, id: \.objectID) { arsenal in
                         if isEditMode {
                             SelectableArsenalRowView(
                                 arsenal: arsenal,
@@ -153,44 +217,36 @@ struct ArsenalListView: View {
                             }
                         }
                     }
-                    .onMove(perform: isEditMode ? nil : moveArsenals)
+                    // ponytail: reordering is disabled while a filter is active — moveArsenals
+                    // rewrites createdDate across the whole fetch, so indices from a filtered
+                    // ForEach would reorder the wrong rows. Switch to All to reorder.
+                    .onMove(perform: (isEditMode || nudgeFilter != .all) ? nil : moveArsenals)
                 }
             }
             .listStyle(PlainListStyle())
         }
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                if !arsenals.isEmpty {
-                    Button(isEditMode ? "Done" : "Select") {
-                        withAnimation {
-                            isEditMode.toggle()
-                            if !isEditMode {
-                                selectedArsenalIDs.removeAll()
-                            }
-                        }
-                    }
-                }
+        // Select/Done now lives in ContentView's centered toolbar pill; clear the selection
+        // here when edit mode turns off so this view keeps owning its own selection state.
+        .onChange(of: isEditMode) { _, editing in
+            if !editing {
+                selectedArsenalIDs.removeAll()
             }
         }
         .refreshable {
-            // Force a refresh of the fetch request
-            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-            refreshTrigger = UUID()
+            // Re-read from the store; the fetch request itself is already live.
+            viewContext.refreshAllObjects()
         }
-        .onReceive(NotificationCenter.default.publisher(for: .NSManagedObjectContextDidSave)) { _ in
-            // Refresh the view when Core Data changes
+        .onReceive(NotificationCenter.default.publisher(for: .NSManagedObjectContextDidSave)) { note in
+            // Saves made on this context are picked up automatically by @FetchRequest and the
+            // rows' @ObservedObject. Only a save from *another* context (Siri intents, widget)
+            // needs a manual fault-in, so skip the churn for local saves.
+            guard let savedContext = note.object as? NSManagedObjectContext,
+                  savedContext !== viewContext else { return }
             DispatchQueue.main.async {
                 viewContext.refreshAllObjects()
-                refreshTrigger = UUID()
             }
         }
-        .sheet(item: $selectedArsenal, onDismiss: {
-            // Force refresh when edit sheet is dismissed
-            DispatchQueue.main.async {
-                viewContext.refreshAllObjects()
-                refreshTrigger = UUID()
-            }
-        }) { arsenal in
+        .sheet(item: $selectedArsenal) { arsenal in
             EditArsenalView(arsenal: arsenal)
                 .environment(\.managedObjectContext, viewContext)
         }
@@ -202,7 +258,6 @@ struct ArsenalListView: View {
         } message: {
             Text("Are you sure you want to delete \(selectedArsenalIDs.count) arsenal\(selectedArsenalIDs.count == 1 ? "" : "s")? This action cannot be undone.")
         }
-        .id(refreshTrigger) // Force view refresh when trigger changes
     }
     
     // MARK: - Selection Methods
@@ -215,11 +270,11 @@ struct ArsenalListView: View {
     }
     
     private func selectAll() {
-        selectedArsenalIDs = Set(arsenals.map { $0.objectID })
+        selectedArsenalIDs = Set(visibleArsenals.map { $0.objectID })
     }
-    
+
     private func selectCompleted() {
-        selectedArsenalIDs = Set(arsenals.filter { $0.isCompleted }.map { $0.objectID })
+        selectedArsenalIDs = Set(visibleArsenals.filter { $0.isCompleted }.map { $0.objectID })
     }
     
     private func deselectAll() {
@@ -232,7 +287,7 @@ struct ArsenalListView: View {
         selectedArsenalIDs.removeAll()
         
         // Exit edit mode if no arsenals left
-        if arsenals.isEmpty {
+        if visibleArsenals.isEmpty {
             isEditMode = false
         }
     }
@@ -254,8 +309,7 @@ struct ArsenalListView: View {
         // Save the context
         do {
             try viewContext.save()
-            refreshTrigger = UUID()
-            
+
             // Reload widget to show new order
             WidgetCenter.shared.reloadAllTimelines()
         } catch {
@@ -326,7 +380,7 @@ struct SelectionToolbar: View {
 
 // MARK: - Selectable Arsenal Row
 struct SelectableArsenalRowView: View {
-    let arsenal: Arsenal
+    @ObservedObject var arsenal: Arsenal
     let isSelected: Bool
     let onToggleSelection: () -> Void
     
@@ -380,7 +434,9 @@ struct SelectableArsenalRowView: View {
 
 struct ArsenalRowView: View {
     @EnvironmentObject var arsenalManager: ArsenalManager
-    let arsenal: Arsenal
+    // @ObservedObject so the row redraws itself when its own fields change (e.g. isCompleted).
+    // Without this the list needed a blunt .id() refresh that rebuilt every row on any save.
+    @ObservedObject var arsenal: Arsenal
     let onTap: () -> Void
     @State private var isUpdating = false
     
@@ -458,18 +514,35 @@ struct ArsenalRowView: View {
 }
 
 struct EmptyStateView: View {
+    var filter: NudgeFilter = .all
+
+    private var title: String {
+        filter == .all ? "No Arsenals Yet" : "Nothing \(filter.label)"
+    }
+
+    private var message: String {
+        switch filter {
+        case .all:
+            return "Create your first arsenal to get started with managing your tasks."
+        case .now:
+            return "No arsenals are nudging right now. Switch the filter to All to see the rest."
+        case .later:
+            return "No arsenals are waiting on a later start. Switch the filter to All to see the rest."
+        }
+    }
+
     var body: some View {
         VStack(spacing: 20) {
-            Image(systemName: "list.bullet.clipboard")
+            Image(systemName: filter == .all ? "list.bullet.clipboard" : filter.icon)
                 .font(.system(size: 60))
                 .foregroundColor(.gray)
-            
-            Text("No Arsenals Yet")
+
+            Text(title)
                 .font(.title2)
                 .fontWeight(.medium)
                 .foregroundColor(.primary)
-            
-            Text("Create your first arsenal to get started with managing your tasks.")
+
+            Text(message)
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
