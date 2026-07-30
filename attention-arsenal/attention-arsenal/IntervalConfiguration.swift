@@ -401,10 +401,16 @@ struct IntervalConfiguration {
 
     /// Batched scheduling when a deferred start gate is set (repeating triggers ignore the gate).
     func usesBatchedScheduling(deferredStart: Date?) -> Bool {
-        if deferredStart != nil {
+        if let start = deferredStart {
             switch type {
-            case .none, .oneTime, .minutes:
+            case .none, .oneTime:
                 return false
+            case .minutes:
+                // Batch absolute fires only while the start gate is still ahead — a repeating
+                // interval trigger would start counting immediately and ignore the gate. Once
+                // the gate passes, the repeating trigger runs forever with no top-up needed,
+                // which is both cheaper and more reliable than refilling short batches.
+                return start > NotificationManager.now()
             default:
                 return true
             }

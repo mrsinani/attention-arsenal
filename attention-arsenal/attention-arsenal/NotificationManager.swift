@@ -102,7 +102,12 @@ class NotificationManager: ObservableObject {
 
         guard !activeArsenals.isEmpty else { return }
 
+        // Both callbacks below hop to the main queue before doing anything. Two reasons:
+        // the arsenals belong to the main-queue viewContext, and scheduleNotification blocks on
+        // a semaphore — running that on UN's own callback queue would stop it from ever
+        // delivering the nested getPendingNotificationRequests callback, deadlocking the app.
         UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+          DispatchQueue.main.async {
             var totalPending = requests.count
 
             // Activate arsenals whose deferred start time has passed but have no pending notifications.
@@ -129,6 +134,7 @@ class NotificationManager: ObservableObject {
             guard !batchedArsenals.isEmpty else { return }
 
             UNUserNotificationCenter.current().getPendingNotificationRequests { refreshedRequests in
+              DispatchQueue.main.async {
                 totalPending = refreshedRequests.count
 
                 for (arsenal, config) in batchedArsenals {
@@ -161,7 +167,9 @@ class NotificationManager: ObservableObject {
                         totalPending += added
                     }
                 }
+              }
             }
+          }
         }
     }
 
@@ -263,15 +271,6 @@ class NotificationManager: ObservableObject {
         guard config.type != .none else { return }
 
         let deferredStart = arsenal.notificationStartDate
-
-        // Minutes use repeating interval triggers that cannot respect a future start gate.
-        if let start = deferredStart, start > Self.now(), config.type == .minutes {
-            cancelNotifications(for: arsenal)
-            #if DEBUG
-            print("   Deferred — minutes interval cannot pre-schedule before start time")
-            #endif
-            return
-        }
 
         cancelNotifications(for: arsenal)
 
@@ -477,7 +476,9 @@ class NotificationManager: ObservableObject {
         let userTimeZone = TimeZone.current
 
         switch config.type {
-        case .hours:
+        // .minutes only lands here when a deferred start is still pending; the walk-forward
+        // logic is identical to .hours, just a smaller stride.
+        case .hours, .minutes:
             guard let timeInterval = config.timeIntervalInSeconds else { return [] }
             var triggers: [UNNotificationTrigger] = []
             var fireDate: Date
@@ -784,33 +785,40 @@ class NotificationManager: ObservableObject {
 
     // MARK: - Notification Management
     func cancelNotifications(for arsenal: Arsenal) {
+        // Read everything off the managed object HERE, on the caller's thread. These closures
+        // run on a UN background queue, and `arsenal` belongs to the main-queue viewContext —
+        // touching it in there makes Core Data hop to the main queue, which is blocked below.
         let baseIdentifier = baseIdentifier(for: arsenal)
+        let title = arsenal.title ?? "Unknown"
         let center = UNUserNotificationCenter.current()
 
-        let semaphore = DispatchSemaphore(value: 0)
+        // Clearing already-delivered notifications keeps a reminder that fired moments before a
+        // delete/complete from lingering in Notification Center. It doesn't affect scheduling
+        // order, so it's fire-and-forget — nesting it inside the wait below caused a deadlock.
+        center.getDeliveredNotifications { delivered in
+            let deliveredToCancel = delivered
+                .filter { self.belongsToArsenal($0.request.identifier, baseId: baseIdentifier) }
+                .map { $0.request.identifier }
+            center.removeDeliveredNotifications(withIdentifiers: deliveredToCancel)
+        }
 
+        // Pending removal must finish before the caller schedules replacements, otherwise the
+        // remove can land on the newly-added requests (they reuse the same identifiers).
+        let semaphore = DispatchSemaphore(value: 0)
         center.getPendingNotificationRequests { requests in
             let identifiersToCancel = requests
                 .filter { self.belongsToArsenal($0.identifier, baseId: baseIdentifier) }
                 .map { $0.identifier }
             center.removePendingNotificationRequests(withIdentifiers: identifiersToCancel)
-
-            // Also clear already-delivered notifications sitting in Notification Center —
-            // otherwise a batched reminder that fired moments before a delete/complete stays
-            // visible and reads as "it still notified me after I finished it."
-            center.getDeliveredNotifications { delivered in
-                let deliveredToCancel = delivered
-                    .filter { self.belongsToArsenal($0.request.identifier, baseId: baseIdentifier) }
-                    .map { $0.request.identifier }
-                center.removeDeliveredNotifications(withIdentifiers: deliveredToCancel)
-                #if DEBUG
-                print("Cancelled \(identifiersToCancel.count) pending, \(deliveredToCancel.count) delivered notification(s) for arsenal: \(arsenal.title ?? "Unknown")")
-                #endif
-                semaphore.signal()
-            }
+            #if DEBUG
+            print("Cancelled \(identifiersToCancel.count) pending notification(s) for arsenal: \(title)")
+            #endif
+            semaphore.signal()
         }
 
-        semaphore.wait()
+        // ponytail: timeout so a stalled callback degrades to a stale notification instead of a
+        // frozen UI. Proper fix is making the whole schedule path async; this is the cheap guard.
+        _ = semaphore.wait(timeout: .now() + 5)
     }
 
     func cancelAllNotifications() {

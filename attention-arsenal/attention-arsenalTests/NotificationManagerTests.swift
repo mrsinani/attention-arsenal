@@ -161,6 +161,50 @@ struct NotificationManagerTests {
         }
     }
 
+    // MARK: - Deferred minutes must pre-schedule instead of waiting for the app to open
+
+    @Test("minutes reminder with a future start pre-schedules fires from the start time")
+    func minutesWithDeferredStartPreSchedules() throws {
+        let now = Calendar.current.date(
+            from: DateComponents(year: 2026, month: 1, day: 1, hour: 12, minute: 0, second: 0)
+        )!
+        let start = now.addingTimeInterval(30 * 60) // 12:30, same day
+
+        let previousClock = NotificationManager.now
+        NotificationManager.now = { now }
+        defer { NotificationManager.now = previousClock }
+
+        let config = IntervalConfiguration(type: .minutes, value: 5)
+        // Must batch while the gate is ahead, otherwise nothing is queued until the app opens.
+        #expect(config.usesBatchedScheduling(deferredStart: start))
+
+        let manager = NotificationManager.shared
+        let triggers = manager.createBatchedTriggers(
+            for: config, batchSize: 4, continuingFrom: nil,
+            earliestFire: start, deferredStart: start
+        )
+
+        #expect(triggers.count == 4)
+        let first = try #require(fireDate(of: triggers[0]))
+        #expect(first == start)
+        let second = try #require(fireDate(of: triggers[1]))
+        #expect(abs(second.timeIntervalSince(start) - 300) < 1)
+    }
+
+    @Test("minutes reverts to the repeating trigger once the start gate has passed")
+    func minutesStopsBatchingAfterStart() {
+        let now = Date(timeIntervalSinceReferenceDate: 3_000_000)
+
+        let previousClock = NotificationManager.now
+        NotificationManager.now = { now }
+        defer { NotificationManager.now = previousClock }
+
+        let config = IntervalConfiguration(type: .minutes, value: 5)
+        // A repeating interval trigger runs forever without top-ups, so batching past the
+        // gate would burn the pending-notification budget for no benefit.
+        #expect(!config.usesBatchedScheduling(deferredStart: now.addingTimeInterval(-60)))
+    }
+
     // MARK: - Batch continuation: topping up must not duplicate or skip a fire
 
     @Test("hours batch continuation lands exactly one interval after the last pending fire")
