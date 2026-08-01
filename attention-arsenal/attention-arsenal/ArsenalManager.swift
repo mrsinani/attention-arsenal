@@ -17,7 +17,8 @@ class ArsenalManager: ObservableObject {
         description: String? = nil,
         intervalConfig: IntervalConfiguration = IntervalConfiguration.defaultDaily,
         endDate: Date? = nil,
-        notificationStartDate: Date? = nil
+        notificationStartDate: Date? = nil,
+        isImportant: Bool = false
     ) -> Arsenal? {
         let arsenal = Arsenal(context: viewContext)
         arsenal.title = title
@@ -27,6 +28,7 @@ class ArsenalManager: ObservableObject {
         // Persist event-linked end date so duplicate detection in EventsView can match it.
         arsenal.endDate = endDate
         arsenal.notificationStartDate = notificationStartDate
+        arsenal.isImportant = isImportant
 
         // Apply interval configuration
         intervalConfig.apply(to: arsenal)
@@ -86,7 +88,8 @@ class ArsenalManager: ObservableObject {
         intervalConfig: IntervalConfiguration? = nil,
         isCompleted: Bool? = nil,
         shouldUpdateNotificationStartDate: Bool = false,
-        notificationStartDate: Date? = nil
+        notificationStartDate: Date? = nil,
+        isImportant: Bool? = nil
     ) -> Bool {
         if let title = title {
             arsenal.title = title
@@ -102,6 +105,9 @@ class ArsenalManager: ObservableObject {
         }
         if shouldUpdateNotificationStartDate {
             arsenal.notificationStartDate = notificationStartDate
+        }
+        if let isImportant = isImportant {
+            arsenal.isImportant = isImportant
         }
         
         // Use the same context as the arsenal object

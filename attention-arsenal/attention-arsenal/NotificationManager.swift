@@ -844,6 +844,12 @@ class NotificationManager: ObservableObject {
         content.title = "Attention Arsenal"
         content.body = arsenal.title ?? "You have a pending task"
         content.sound = .default
+        // Important arsenals break through Focus and Scheduled Summary (needs the
+        // time-sensitive entitlement). Not .critical — that bypasses the ringer/silent switch
+        // and requires Apple's approval. Everything else stays .active so routine nudges
+        // can't train the user into revoking the permission.
+        content.interruptionLevel = arsenal.isImportant ? .timeSensitive : .active
+        content.relevanceScore = arsenal.isImportant ? 1.0 : 0.5
         content.userInfo = [
             "arsenalID": arsenal.objectID.uriRepresentation().absoluteString,
             "arsenalTitle": arsenal.title ?? "Untitled Arsenal",

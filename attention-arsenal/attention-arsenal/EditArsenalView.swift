@@ -14,6 +14,7 @@ struct EditArsenalView: View {
     @State private var intervalConfig: IntervalConfiguration
     @State private var nudgeTiming: NudgeTiming
     @State private var notificationStartDate: Date
+    @State private var isImportant: Bool
     @State private var showingPermissionAlert = false
     @State private var showingStartDateAlert = false
     @State private var isSaving = false
@@ -34,6 +35,7 @@ struct EditArsenalView: View {
         self._notificationStartDate = State(
             initialValue: persistedStart ?? NudgeTimingSection.defaultStartDate()
         )
+        self._isImportant = State(initialValue: arsenal.isImportant)
     }
     
     var body: some View {
@@ -74,6 +76,8 @@ struct EditArsenalView: View {
                     nudgeTiming: $nudgeTiming,
                     notificationStartDate: $notificationStartDate
                 )
+
+                ImportantToggleSection(isImportant: $isImportant)
 
                 IntervalSelectionView(
                     intervalConfig: $intervalConfig,
@@ -153,7 +157,8 @@ struct EditArsenalView: View {
             description: descriptionToUse,
             intervalConfig: intervalConfig,
             shouldUpdateNotificationStartDate: true,
-            notificationStartDate: resolvedNotificationStartDate
+            notificationStartDate: resolvedNotificationStartDate,
+            isImportant: isImportant
         )
         
         if success {

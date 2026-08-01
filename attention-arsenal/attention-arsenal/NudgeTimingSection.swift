@@ -14,6 +14,22 @@ enum NudgeTiming: String, CaseIterable, Identifiable {
     }
 }
 
+/// Marks an arsenal's notifications time-sensitive so they cut through Focus and the
+/// Scheduled Summary. Shared by the create and edit forms so both stay in step.
+struct ImportantToggleSection: View {
+    @Binding var isImportant: Bool
+
+    var body: some View {
+        Section {
+            Toggle(isOn: $isImportant) {
+                Label("Mark as important", systemImage: "exclamationmark.circle")
+            }
+        } footer: {
+            Text("Important reminders break through Focus and Do Not Disturb, and skip the Scheduled Summary. Use it for things you can't miss, like medication.")
+        }
+    }
+}
+
 /// Toolbar filter for the arsenal list.
 enum NudgeFilter: String, CaseIterable, Identifiable {
     case all
