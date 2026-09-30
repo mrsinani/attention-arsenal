@@ -18,7 +18,8 @@ class ArsenalManager: ObservableObject {
         intervalConfig: IntervalConfiguration = IntervalConfiguration.defaultDaily,
         endDate: Date? = nil,
         notificationStartDate: Date? = nil,
-        isImportant: Bool = false
+        isImportant: Bool = false,
+        calendarEventID: String? = nil
     ) -> Arsenal? {
         let arsenal = Arsenal(context: viewContext)
         arsenal.title = title
@@ -29,6 +30,9 @@ class ArsenalManager: ObservableObject {
         arsenal.endDate = endDate
         arsenal.notificationStartDate = notificationStartDate
         arsenal.isImportant = isImportant
+        // Set when the arsenal was created from a calendar event, so the Events tab can hide
+        // exactly that event instead of guessing from nearby dates.
+        arsenal.calendarEventID = calendarEventID
 
         // Apply interval configuration
         intervalConfig.apply(to: arsenal)

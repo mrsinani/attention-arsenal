@@ -9,7 +9,7 @@ struct AddArsenalView: View {
     
     @State private var title = ""
     @State private var description = ""
-    @State private var intervalConfig = IntervalConfiguration.defaultDaily
+    @State private var intervalConfig = IntervalConfiguration.lastUsed
     @State private var nudgeTiming: NudgeTiming = .now
     @State private var notificationStartDate = NudgeTimingSection.defaultStartDate()
     @State private var isImportant = false
@@ -141,6 +141,7 @@ struct AddArsenalView: View {
             notificationStartDate: resolvedNotificationStartDate,
             isImportant: isImportant
         ) {
+            IntervalConfiguration.lastUsed = intervalConfig
             isSaving = false
             dismiss()
         } else {

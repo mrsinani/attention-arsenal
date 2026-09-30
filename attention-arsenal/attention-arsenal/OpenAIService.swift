@@ -13,8 +13,10 @@ class OpenAIService {
         
         // Configure URLSession with proper settings
         let configuration = URLSessionConfiguration.default
-        configuration.timeoutIntervalForRequest = 30
-        configuration.timeoutIntervalForResource = 60
+        // Siri kills an intent long before 30s, so a slow call used to surface as "the app
+        // didn't respond" rather than as a reminder. 12s leaves room to fall back locally.
+        configuration.timeoutIntervalForRequest = 12
+        configuration.timeoutIntervalForResource = 20
         configuration.waitsForConnectivity = true
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
         self.urlSession = URLSession(configuration: configuration)

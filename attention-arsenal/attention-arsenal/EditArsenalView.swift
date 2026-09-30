@@ -162,6 +162,7 @@ struct EditArsenalView: View {
         )
         
         if success {
+            IntervalConfiguration.lastUsed = intervalConfig
             isSaving = false
             dismiss()
         } else {

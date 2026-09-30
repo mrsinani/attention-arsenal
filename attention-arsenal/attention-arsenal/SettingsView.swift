@@ -2,6 +2,11 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
+
+    /// Read from the bundle: the hardcoded string was still claiming 1.5 at v1.7.
+    private static var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+    }
     
     var body: some View {
         NavigationView {
@@ -30,7 +35,7 @@ struct SettingsView: View {
                     HStack {
                         Text("Version")
                         Spacer()
-                        Text("1.5")
+                        Text(Self.appVersion)
                             .foregroundColor(.secondary)
                     }
                 }

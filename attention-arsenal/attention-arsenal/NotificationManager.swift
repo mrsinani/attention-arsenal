@@ -874,6 +874,10 @@ class NotificationManager: ObservableObject {
     }
 
     // MARK: - Notification Statistics
+    // ponytail: both reads below block the calling thread (usually main) on the notification
+    // centre's XPC reply, with the same 5s cap as cancelNotifications. An unbounded wait here
+    // froze the app — and, in a Siri intent, made Siri report the app as unresponsive.
+    // Proper fix is an async scheduling path; this keeps a stalled reply to a degraded batch.
     func getPendingNotificationCount() -> Int {
         var count = 0
         let semaphore = DispatchSemaphore(value: 0)
@@ -883,7 +887,7 @@ class NotificationManager: ObservableObject {
             semaphore.signal()
         }
 
-        semaphore.wait()
+        _ = semaphore.wait(timeout: .now() + 5)
         return count
     }
 
@@ -896,7 +900,7 @@ class NotificationManager: ObservableObject {
             semaphore.signal()
         }
 
-        semaphore.wait()
+        _ = semaphore.wait(timeout: .now() + 5)
         return requests
     }
 }

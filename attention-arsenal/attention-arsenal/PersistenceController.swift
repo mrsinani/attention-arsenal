@@ -31,8 +31,20 @@ struct PersistenceController {
 
     let container: NSPersistentContainer
 
+    /// Loaded once and shared by every container. `NSPersistentContainer(name:)` loads its own
+    /// copy of the model, so a second controller (tests, previews) registers the Arsenal entity
+    /// twice and Core Data can no longer map the class to a unique entity — `Arsenal(context:)`
+    /// then silently drops the values you set on it.
+    private static let managedObjectModel: NSManagedObjectModel = {
+        guard let url = Bundle.main.url(forResource: "AttentionArsenal", withExtension: "momd"),
+              let model = NSManagedObjectModel(contentsOf: url) else {
+            fatalError("Failed to load the AttentionArsenal Core Data model")
+        }
+        return model
+    }()
+
     init(inMemory: Bool = false) {
-        container = NSPersistentContainer(name: "AttentionArsenal")
+        container = NSPersistentContainer(name: "AttentionArsenal", managedObjectModel: Self.managedObjectModel)
         if inMemory {
             container.persistentStoreDescriptions.first!.url = URL(fileURLWithPath: "/dev/null")
         } else {
@@ -40,6 +52,11 @@ struct PersistenceController {
             if let sharedStoreURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.attentionarsenal.shared") {
                 let storeURL = sharedStoreURL.appendingPathComponent("AttentionArsenal.sqlite")
                 let description = NSPersistentStoreDescription(url: storeURL)
+                // Stated explicitly (they are also the defaults) because this app ships model
+                // changes — v1.8 added calendarEventID — and an existing store must migrate
+                // rather than fail to load and take the user's arsenals with it.
+                description.shouldMigrateStoreAutomatically = true
+                description.shouldInferMappingModelAutomatically = true
                 container.persistentStoreDescriptions = [description]
             }
         }

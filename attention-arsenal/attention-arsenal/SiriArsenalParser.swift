@@ -11,12 +11,20 @@ class SiriArsenalParser {
     /// - Returns: Parsed arsenal data ready to create
     func parseVoiceInput(_ voiceInput: String) async throws -> ParsedArsenal {
         let prompt = createPrompt(for: voiceInput)
-        
-        // Get OpenAI response
-        let response = try await OpenAIService.shared.sendPrompt(prompt)
-        
-        // Parse the response
-        return try parseResponse(response, originalInput: voiceInput)
+
+        do {
+            let response = try await OpenAIService.shared.sendPrompt(prompt)
+            return try parseResponse(response, originalInput: voiceInput)
+        } catch {
+            // The AI is an enhancement, not a dependency: a missing key, an exhausted quota,
+            // no signal, or a timeout inside Siri's short budget all land here. Parsing
+            // locally keeps "Hey Siri, add arsenal" working instead of answering
+            // "Sorry, I couldn't create that reminder."
+            #if DEBUG
+            print("Siri parse fell back to local parsing: \(error.localizedDescription)")
+            #endif
+            return createFallback(from: voiceInput)
+        }
     }
     
     private func createPrompt(for input: String) -> String {
@@ -129,8 +137,12 @@ class SiriArsenalParser {
                 // Specific datetime intent → one-time non-repeating notification
                 intervalConfig = IntervalConfiguration(type: .oneTime, targetDate: targetDate)
             } else {
-                // No explicit datetime → fall back to interval-based cadence
-                intervalConfig = convertMinutesToIntervalConfig(parsed.notificationInterval)
+                // No explicit datetime → fall back to interval-based cadence, then restore the
+                // time the user actually said (the AI reports cadence only).
+                intervalConfig = Self.applySpokenTime(
+                    to: convertMinutesToIntervalConfig(parsed.notificationInterval),
+                    from: originalInput
+                )
             }
 
             return ParsedArsenal(
@@ -145,20 +157,141 @@ class SiriArsenalParser {
         }
     }
     
-    private func createFallback(from input: String) -> ParsedArsenal {
-        // Simple fallback when AI parsing fails
-        let title = String(input.prefix(50))
-        let description = "Voice reminder: \(input)"
+    /// Offline parse of a voice command. `NSDataDetector` is the system's own date parser —
+    /// the one that turns "tomorrow at 3pm" into a date in Mail — so this needs no grammar of
+    /// its own. Internal (not private) so tests can drive the offline path directly.
+    func createFallback(from input: String) -> ParsedArsenal {
+        let lowercased = input.lowercased()
+        let (detectedDate, remainder) = Self.detectDate(in: input)
+        let title = Self.cleanedTitle(from: remainder.isEmpty ? input : remainder)
 
-        // Default to 4 hours interval
-        let intervalConfig = IntervalConfiguration(type: .hours, value: 4)
+        let intervalConfig: IntervalConfiguration
+        if Self.mentionsRepetition(lowercased) {
+            // "every day at 9am" — recurring, with the spoken time if one was detected.
+            var config = Self.repeatingConfig(for: lowercased)
+            if let detectedDate {
+                let time = Calendar.current.dateComponents([.hour, .minute], from: detectedDate)
+                config.hour = Int16(time.hour ?? 9)
+                config.minute = Int16(time.minute ?? 0)
+            }
+            intervalConfig = config
+        } else if let detectedDate, detectedDate > Date() {
+            // "dentist tomorrow at 3pm" — a single fire at the moment the user named.
+            intervalConfig = IntervalConfiguration(type: .oneTime, targetDate: detectedDate)
+        } else {
+            // Nothing to go on: reuse whatever cadence this user actually picks, never .none —
+            // a Siri reminder that can't fire is worse than a wrong interval.
+            let last = IntervalConfiguration.lastUsed
+            intervalConfig = last.type == .none ? .defaultDaily : last
+        }
 
         return ParsedArsenal(
             title: title,
-            description: description,
+            description: "Voice reminder: \(input)",
             intervalConfig: intervalConfig,
             endDate: nil
         )
+    }
+
+    /// Restore the clock time (and weekday) the user spoke onto a recurring config.
+    /// The AI only reports a cadence in minutes, so "every day at 6pm" came back as 1440 and
+    /// landed on `defaultDaily` — 9:00 AM. The spoken time is right there in the input, so
+    /// read it with the same detector the offline path uses.
+    static func applySpokenTime(to config: IntervalConfiguration, from input: String) -> IntervalConfiguration {
+        guard config.type.needsTimeSelection, let spoken = detectDate(in: input).date else {
+            return config
+        }
+
+        var updated = config
+        let spokenParts = Calendar.current.dateComponents([.hour, .minute, .weekday], from: spoken)
+        updated.hour = Int16(spokenParts.hour ?? Int(config.hour))
+        updated.minute = Int16(spokenParts.minute ?? Int(config.minute))
+
+        // Only move the weekday when the user actually named one: a bare "every day at 6pm"
+        // resolves to today, which would silently turn a weekly reminder into a today-only one.
+        if config.type == .weekly,
+           let weekdayNumber = spokenParts.weekday,
+           let weekday = Weekday(rawValue: weekdayNumber - 1),
+           input.range(of: weekday.fullName, options: .caseInsensitive) != nil {
+            var days = DaysBitmask()
+            days.set(weekday, selected: true)
+            updated.days = days
+        }
+
+        return updated
+    }
+
+    // MARK: - Local Parsing Helpers
+
+    private static let leadingPhrases = [
+        "remind me to ", "remind me ", "remember to ", "remember ",
+        "add an arsenal to ", "add an arsenal for ", "add arsenal to ", "add arsenal for ",
+        "create an arsenal to ", "create arsenal to ", "create arsenal for ",
+        "new arsenal to ", "new arsenal for ", "i need to ", "make sure to "
+    ]
+
+    private static let repetitionPhrases = [
+        "every day", "everyday", "daily", "every morning", "every night", "every evening",
+        "every week", "weekly", "every month", "monthly"
+    ]
+
+    static func mentionsRepetition(_ lowercased: String) -> Bool {
+        repetitionPhrases.contains { lowercased.contains($0) }
+    }
+
+    static func repeatingConfig(for lowercased: String) -> IntervalConfiguration {
+        if lowercased.contains("every month") || lowercased.contains("monthly") {
+            return .defaultMonthly
+        }
+        if lowercased.contains("every week") || lowercased.contains("weekly") {
+            return .defaultWeekly
+        }
+        return .defaultDaily
+    }
+
+    /// First date/time in the text, plus the text with that phrase removed.
+    static func detectDate(in input: String) -> (date: Date?, remainder: String) {
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.date.rawValue) else {
+            return (nil, input)
+        }
+        let range = NSRange(input.startIndex..<input.endIndex, in: input)
+        guard let match = detector.matches(in: input, range: range).first,
+              let date = match.date,
+              let matchRange = Range(match.range, in: input) else {
+            return (nil, input)
+        }
+        var remainder = input
+        remainder.removeSubrange(matchRange)
+        return (date, remainder.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    /// Strip the command scaffolding ("remind me to ...") and any dangling preposition left
+    /// behind by removing the date phrase, so the title reads like a task.
+    static func cleanedTitle(from text: String) -> String {
+        var title = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        for phrase in leadingPhrases where title.lowercased().hasPrefix(phrase) {
+            title = String(title.dropFirst(phrase.count))
+            break
+        }
+
+        let fillers = ["every day", "everyday", "daily", "every week", "weekly", "every month", "monthly"]
+        for filler in fillers {
+            if let found = title.range(of: filler, options: [.caseInsensitive]) {
+                title.removeSubrange(found)
+            }
+        }
+
+        title = title.trimmingCharacters(in: CharacterSet(charactersIn: " ,.!?"))
+        for preposition in ["on", "at", "by", "in", "this", "next"] where
+            title.lowercased().hasSuffix(" " + preposition) {
+            title = String(title.dropLast(preposition.count + 1))
+            break
+        }
+
+        title = title.trimmingCharacters(in: CharacterSet(charactersIn: " ,.!?"))
+        guard !title.isEmpty else { return "Reminder" }
+        return String(title.prefix(50)).prefix(1).uppercased() + String(title.prefix(50)).dropFirst()
     }
     
     /// Convert minutes to appropriate IntervalConfiguration

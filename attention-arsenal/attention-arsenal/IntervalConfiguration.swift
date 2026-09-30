@@ -1,7 +1,7 @@
 import Foundation
 
 // MARK: - Interval Type Enum
-enum IntervalType: Int16, CaseIterable, Identifiable {
+enum IntervalType: Int16, CaseIterable, Identifiable, Codable {
     case none = 0
     case minutes = 1
     case hours = 2
@@ -120,7 +120,7 @@ enum Weekday: Int, CaseIterable, Identifiable {
 }
 
 // MARK: - Days Bitmask Helper
-struct DaysBitmask {
+struct DaysBitmask: Codable {
     var value: Int16
     
     init(_ value: Int16 = 0) {
@@ -219,7 +219,7 @@ struct DaysBitmask {
 }
 
 // MARK: - Month Days Bitmask Helper
-struct MonthDaysBitmask {
+struct MonthDaysBitmask: Codable {
     var value: Int32  // Use Int32 to support all 31 days (bits 1-31)
     
     init(_ value: Int32 = 0) {
@@ -295,7 +295,7 @@ struct MonthDaysBitmask {
 }
 
 // MARK: - Interval Configuration
-struct IntervalConfiguration {
+struct IntervalConfiguration: Codable {
     var type: IntervalType
     var value: Int16
     var hour: Int16
@@ -331,13 +331,17 @@ struct IntervalConfiguration {
         self.hour = arsenal.notificationHour
         self.minute = arsenal.notificationMinute
         self.days = DaysBitmask(arsenal.notificationDays)
-        // Convert old single dayOfMonth to bitmask, or use notificationInterval as bitmask if available
-        // For backward compatibility, if dayOfMonth is set, use it; otherwise check notificationInterval
-        if arsenal.notificationDayOfMonth > 0 && arsenal.notificationDayOfMonth <= 31 {
+        // notificationInterval holds the full day-of-month bitmask and is the source of truth.
+        // notificationDayOfMonth only ever carries the FIRST selected day (kept for arsenals
+        // written by pre-bitmask versions), so reading it first silently threw away every other
+        // day the user picked.
+        let storedBitmask = MonthDaysBitmask(Int32(arsenal.notificationInterval))
+        if storedBitmask.hasSelection {
+            self.monthDays = storedBitmask
+        } else if arsenal.notificationDayOfMonth > 0 && arsenal.notificationDayOfMonth <= 31 {
             self.monthDays = MonthDaysBitmask.day(Int(arsenal.notificationDayOfMonth))
         } else {
-            // Try to interpret notificationInterval as bitmask (for new data)
-            self.monthDays = MonthDaysBitmask(Int32(arsenal.notificationInterval))
+            self.monthDays = MonthDaysBitmask()
         }
         // For oneTime reminders, recover the explicit fire date from startDate
         if self.type == .oneTime {
@@ -552,6 +556,31 @@ extension IntervalConfiguration {
             return defaultMonthly
         case .oneTime:
             return IntervalConfiguration(type: .oneTime, targetDate: nil)
+        }
+    }
+}
+
+// MARK: - Last Used Interval
+extension IntervalConfiguration {
+    private static let lastUsedKey = "lastUsedIntervalConfiguration"
+
+    /// The interval the user last saved by hand. New arsenals open on it instead of the
+    /// generic daily default, so someone who always nudges "every 2 hours" picks it once.
+    static var lastUsed: IntervalConfiguration {
+        get {
+            guard let data = UserDefaults.standard.data(forKey: lastUsedKey),
+                  let config = try? JSONDecoder().decode(IntervalConfiguration.self, from: data)
+            else {
+                return .defaultDaily
+            }
+            return config
+        }
+        set {
+            // .oneTime is only ever produced by Siri/AI from a specific datetime, so reusing it
+            // as a default would hand the next arsenal a fire date that has already passed.
+            guard newValue.type != .oneTime,
+                  let data = try? JSONEncoder().encode(newValue) else { return }
+            UserDefaults.standard.set(data, forKey: lastUsedKey)
         }
     }
 }

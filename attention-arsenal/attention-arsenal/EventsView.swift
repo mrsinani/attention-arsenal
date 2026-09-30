@@ -157,23 +157,13 @@ struct EventsList: View {
         .listStyle(InsetGroupedListStyle())
     }
     
-    // Check if an event already has a matching arsenal.
-    // Now that createArsenal persists endDate, this comparison is reliable.
+    /// Whether this exact event already has a reminder.
+    /// Matched on the event's own identifier — the previous ±1 hour date comparison hid any
+    /// event that merely started or ended near ANY arsenal, so a single 9am one-time reminder
+    /// (whose fire time lives in `startDate`) made every 9am event vanish from this list.
     private func hasMatchingArsenal(for event: EKEvent) -> Bool {
-        return arsenals.contains { arsenal in
-            // Primary check: end date match within 1 hour (most stable identifier available)
-            if let arsenalEndDate = arsenal.endDate {
-                let timeDiff = abs(arsenalEndDate.timeIntervalSince(event.endDate))
-                if timeDiff < 3600 { return true }
-            }
-            // Secondary check: start date match within 1 hour (covers edge cases where
-            // endDate wasn't persisted by older app versions)
-            if let arsenalStartDate = arsenal.startDate {
-                let timeDiff = abs(arsenalStartDate.timeIntervalSince(event.startDate))
-                if timeDiff < 3600 { return true }
-            }
-            return false
-        }
+        guard let eventID = event.eventIdentifier else { return false }
+        return arsenals.contains { $0.calendarEventID == eventID }
     }
     
     // Group events by day
@@ -363,12 +353,13 @@ struct EventRow: View {
                         intervalConfig = convertMinutesToIntervalConfig(suggestion.notificationInterval)
                     }
 
-                    // Pass event.endDate so hasMatchingArsenal can detect duplicates.
+                    // calendarEventID is what hasMatchingArsenal checks; endDate stays for display.
                     let arsenal = arsenalManager.createArsenal(
                         title: suggestion.title,
                         description: suggestion.description,
                         intervalConfig: intervalConfig,
-                        endDate: event.endDate
+                        endDate: event.endDate,
+                        calendarEventID: event.eventIdentifier
                     )
 
                     isCreatingReminder = false
