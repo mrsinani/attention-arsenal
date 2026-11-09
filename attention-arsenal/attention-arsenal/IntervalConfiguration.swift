@@ -403,8 +403,13 @@ struct IntervalConfiguration: Codable {
         }
     }
 
-    /// Batched scheduling when a deferred start gate is set (repeating triggers ignore the gate).
-    func usesBatchedScheduling(deferredStart: Date?) -> Bool {
+    /// Batched scheduling when a deferred start gate is set (repeating triggers ignore the gate),
+    /// or when quiet hours apply to a minutes/hours nudge: a repeating trigger can't skip the
+    /// night, so those become individual dated fires with the quiet window left out.
+    func usesBatchedScheduling(deferredStart: Date?, quietHours: Bool = false) -> Bool {
+        if quietHours && (type == .minutes || type == .hours) {
+            return true
+        }
         if let start = deferredStart {
             switch type {
             case .none, .oneTime:

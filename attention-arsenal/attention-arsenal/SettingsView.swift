@@ -2,6 +2,20 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    @AppStorage(QuietHours.enabledKey) private var quietHoursEnabled = false
+    @AppStorage(QuietHours.startKey) private var quietStart = QuietHours.defaultStart
+    @AppStorage(QuietHours.endKey) private var quietEnd = QuietHours.defaultEnd
+
+    /// DatePicker edits a Date; storage is minutes after midnight.
+    private func timeBinding(_ minutes: Binding<Int>) -> Binding<Date> {
+        Binding(
+            get: { Calendar.current.startOfDay(for: Date()).addingTimeInterval(TimeInterval(minutes.wrappedValue * 60)) },
+            set: {
+                let parts = Calendar.current.dateComponents([.hour, .minute], from: $0)
+                minutes.wrappedValue = (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
+            }
+        )
+    }
 
     /// Read from the bundle: the hardcoded string was still claiming 1.5 at v1.7.
     private static var appVersion: String {
@@ -11,6 +25,22 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             List {
+                Section {
+                    Toggle(isOn: $quietHoursEnabled.animation()) {
+                        Label("Quiet Hours", systemImage: "moon.fill")
+                    }
+                    if quietHoursEnabled {
+                        DatePicker("From", selection: timeBinding($quietStart), displayedComponents: .hourAndMinute)
+                        DatePicker("To", selection: timeBinding($quietEnd), displayedComponents: .hourAndMinute)
+                    }
+                } footer: {
+                    Text("Repeating nudges (every few minutes or hours) pause during quiet hours and pick back up when they end. You can turn this off per arsenal.")
+                }
+                // Already-scheduled nudges were built with the old window; rebuild them.
+                .onChange(of: quietHoursEnabled) { NotificationManager.shared.quietHoursDidChange() }
+                .onChange(of: quietStart) { NotificationManager.shared.quietHoursDidChange() }
+                .onChange(of: quietEnd) { NotificationManager.shared.quietHoursDidChange() }
+
                 Section(header: Text("Help & Support")) {
                     NavigationLink(destination: SiriCommandsHelpView()) {
                         HStack {

@@ -19,7 +19,9 @@ class ArsenalManager: ObservableObject {
         endDate: Date? = nil,
         notificationStartDate: Date? = nil,
         isImportant: Bool = false,
-        calendarEventID: String? = nil
+        calendarEventID: String? = nil,
+        category: String? = nil,
+        respectsQuietHours: Bool = true
     ) -> Arsenal? {
         let arsenal = Arsenal(context: viewContext)
         arsenal.title = title
@@ -33,6 +35,8 @@ class ArsenalManager: ObservableObject {
         // Set when the arsenal was created from a calendar event, so the Events tab can hide
         // exactly that event instead of guessing from nearby dates.
         arsenal.calendarEventID = calendarEventID
+        arsenal.category = category
+        arsenal.respectsQuietHours = respectsQuietHours
 
         // Apply interval configuration
         intervalConfig.apply(to: arsenal)
@@ -93,7 +97,10 @@ class ArsenalManager: ObservableObject {
         isCompleted: Bool? = nil,
         shouldUpdateNotificationStartDate: Bool = false,
         notificationStartDate: Date? = nil,
-        isImportant: Bool? = nil
+        isImportant: Bool? = nil,
+        shouldUpdateCategory: Bool = false,
+        category: String? = nil,
+        respectsQuietHours: Bool? = nil
     ) -> Bool {
         if let title = title {
             arsenal.title = title
@@ -112,6 +119,12 @@ class ArsenalManager: ObservableObject {
         }
         if let isImportant = isImportant {
             arsenal.isImportant = isImportant
+        }
+        if shouldUpdateCategory {
+            arsenal.category = category
+        }
+        if let respectsQuietHours {
+            arsenal.respectsQuietHours = respectsQuietHours
         }
         
         // Use the same context as the arsenal object

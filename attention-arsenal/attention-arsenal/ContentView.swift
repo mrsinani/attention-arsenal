@@ -169,11 +169,58 @@ struct ArsenalListView: View {
     let nudgeFilter: NudgeFilter
     @State private var selectedArsenalIDs: Set<NSManagedObjectID> = []
     @State private var showingDeleteConfirmation = false
+    @State private var renamingCategory: String?
+    @State private var renameText = ""
 
-    /// The rows actually on screen. Everything below operates on this, not the raw fetch,
-    /// so selection and counts stay consistent with what the filter is showing.
+    /// Newline-joined names of the category headers the user has opened. Everything else is
+    /// collapsed, which makes collapsed the default for new categories. Names can't contain a
+    /// newline (they come from a single-line TextField).
+    @AppStorage("expandedArsenalCategories") private var expandedCategoriesRaw = ""
+    private var expandedCategories: Set<String> {
+        Set(expandedCategoriesRaw.split(separator: "\n").map(String.init))
+    }
+
+    /// The rows matching the filter. Selection and counts operate on this, not the raw fetch.
     private var visibleArsenals: [Arsenal] {
         arsenals.filter { nudgeFilter.matches($0) }
+    }
+
+    /// Sort keys for categories (see ArsenalOutline), JSON `[name: key]`.
+    @AppStorage("arsenalCategoryOrder") private var categoryKeysRaw = ""
+    private var categoryKeys: [String: Double] {
+        (try? JSONDecoder().decode([String: Double].self, from: Data(categoryKeysRaw.utf8))) ?? [:]
+    }
+    private func setCategoryKeys(_ keys: [String: Double]) {
+        if let data = try? JSONEncoder().encode(keys) {
+            categoryKeysRaw = String(decoding: data, as: UTF8.self)
+        }
+    }
+
+    private typealias Outline = ArsenalOutline<NSManagedObjectID>
+
+    private var outline: Outline {
+        Outline(
+            arsenals: arsenals.map {
+                ($0.objectID, $0.category, $0.createdDate?.timeIntervalSinceReferenceDate ?? 0)
+            },
+            categoryKeys: categoryKeys
+        )
+    }
+
+    private var arsenalsByID: [NSManagedObjectID: Arsenal] {
+        Dictionary(uniqueKeysWithValues: arsenals.map { ($0.objectID, $0) })
+    }
+
+    /// Select mode opens every group, so "Select All" never reaches rows you can't see.
+    private func isExpanded(_ category: String) -> Bool {
+        isEditMode || expandedCategories.contains(category)
+    }
+
+    private func toggleExpanded(_ category: String) {
+        guard !isEditMode else { return }
+        var set = expandedCategories
+        if set.contains(category) { set.remove(category) } else { set.insert(category) }
+        expandedCategoriesRaw = set.sorted().joined(separator: "\n")
     }
 
     var body: some View {
@@ -194,33 +241,25 @@ struct ArsenalListView: View {
                 if visibleArsenals.isEmpty {
                     EmptyStateView(filter: nudgeFilter)
                 } else {
-                    ForEach(visibleArsenals, id: \.objectID) { arsenal in
-                        if isEditMode {
-                            SelectableArsenalRowView(
-                                arsenal: arsenal,
-                                isSelected: selectedArsenalIDs.contains(arsenal.objectID),
-                                onToggleSelection: { toggleSelection(for: arsenal) }
-                            )
-                        } else {
-                            ArsenalRowView(arsenal: arsenal) {
-                                selectedArsenal = arsenal
-                            }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                Button("Delete", role: .destructive) {
-                                    _ = arsenalManager.deleteArsenal(arsenal)
-                                }
-                                
-                                Button("Edit") {
-                                    selectedArsenal = arsenal
-                                }
-                                .tint(.blue)
+                    let visibleIDs = Set(visibleArsenals.map(\.objectID))
+                    let byID = arsenalsByID
+                    let outline = self.outline
+                    let rows = outline.rows(isVisible: visibleIDs.contains, isExpanded: isExpanded)
+                    // One ForEach over arsenals AND category headers, so either can be held
+                    // and dragged anywhere, including a category between two arsenals.
+                    ForEach(rows) { row in
+                        switch row {
+                        case .header(let category):
+                            categoryRow(category, count: (outline.children[category] ?? []).filter(visibleIDs.contains).count)
+                        case .arsenal(let arsenalID, let category):
+                            if let arsenal = byID[arsenalID] {
+                                arsenalRow(arsenal)
+                                    // Arsenals inside a category are indented under it.
+                                    .padding(.leading, category == nil ? 0 : 22)
                             }
                         }
                     }
-                    // ponytail: reordering is disabled while a filter is active — moveArsenals
-                    // rewrites createdDate across the whole fetch, so indices from a filtered
-                    // ForEach would reorder the wrong rows. Switch to All to reorder.
-                    .onMove(perform: (isEditMode || nudgeFilter != .all) ? nil : moveArsenals)
+                    .onMove(perform: isEditMode ? nil : { moveRow(rows, from: $0, to: $1) })
                 }
             }
             .listStyle(PlainListStyle())
@@ -258,8 +297,70 @@ struct ArsenalListView: View {
         } message: {
             Text("Are you sure you want to delete \(selectedArsenalIDs.count) arsenal\(selectedArsenalIDs.count == 1 ? "" : "s")? This action cannot be undone.")
         }
+        .alert("Rename Category", isPresented: Binding(
+            get: { renamingCategory != nil },
+            set: { if !$0 { renamingCategory = nil } }
+        )) {
+            TextField("Name", text: $renameText)
+            Button("Cancel", role: .cancel) { }
+            Button("Rename") {
+                let name = Arsenal.cleanCategoryName(renameText)
+                if let old = renamingCategory, !name.isEmpty {
+                    recategorize(old, to: name)
+                }
+            }
+        }
     }
-    
+
+    private func categoryRow(_ category: String, count: Int) -> some View {
+        CategoryHeader(
+            name: category,
+            count: count,
+            isExpanded: isExpanded(category),
+            onToggle: { withAnimation(.snappy(duration: 0.25)) { toggleExpanded(category) } },
+            onRename: {
+                renameText = category
+                renamingCategory = category
+            },
+            onRemove: { withAnimation(.snappy) { recategorize(category, to: nil) } }
+        )
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button("Remove", role: .destructive) {
+                withAnimation(.snappy) { recategorize(category, to: nil) }
+            }
+            Button("Rename") {
+                renameText = category
+                renamingCategory = category
+            }
+            .tint(.blue)
+        }
+    }
+
+    @ViewBuilder
+    private func arsenalRow(_ arsenal: Arsenal) -> some View {
+        if isEditMode {
+            SelectableArsenalRowView(
+                arsenal: arsenal,
+                isSelected: selectedArsenalIDs.contains(arsenal.objectID),
+                onToggleSelection: { toggleSelection(for: arsenal) }
+            )
+        } else {
+            ArsenalRowView(arsenal: arsenal) {
+                selectedArsenal = arsenal
+            }
+            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                Button("Delete", role: .destructive) {
+                    _ = arsenalManager.deleteArsenal(arsenal)
+                }
+
+                Button("Edit") {
+                    selectedArsenal = arsenal
+                }
+                .tint(.blue)
+            }
+        }
+    }
+
     // MARK: - Selection Methods
     private func toggleSelection(for arsenal: Arsenal) {
         if selectedArsenalIDs.contains(arsenal.objectID) {
@@ -293,27 +394,128 @@ struct ArsenalListView: View {
     }
     
     // MARK: - Drag to Reorder
-    private func moveArsenals(from source: IndexSet, to destination: Int) {
-        // Convert FetchedResults to array for manipulation
-        var arsenalsArray = Array(arsenals)
-        arsenalsArray.move(fromOffsets: source, toOffset: destination)
-        
-        // Update createdDate to maintain the new order
-        // Since we sort by createdDate descending, the first item should have the latest date
-        let now = Date()
-        for (index, arsenal) in arsenalsArray.enumerated() {
-            // Subtract seconds based on index to maintain order
-            arsenal.createdDate = now.addingTimeInterval(-Double(index))
+    /// Moves one row (arsenal or category) and rewrites every sort key from the new order.
+    /// The outline holds all arsenals, including ones the filter hides, so they keep their place.
+    private func moveRow(_ rows: [Outline.Row], from source: IndexSet, to destination: Int) {
+        guard let from = source.first else { return }
+        let prev = rows.indices.last { $0 < destination && $0 != from }.map { rows[$0] }
+        let next = rows.indices.first { $0 >= destination && $0 != from }.map { rows[$0] }
+        var outline = self.outline
+        outline.move(rows[from], prev: prev, next: next)
+
+        let byID = arsenalsByID
+        let base = Date().timeIntervalSinceReferenceDate
+        var keys: [String: Double] = [:]
+        for (index, item) in outline.flatOrder.enumerated() {
+            let key = base - Double(index)
+            switch item {
+            case .arsenal(let id): byID[id]?.createdDate = Date(timeIntervalSinceReferenceDate: key)
+            case .category(let name): keys[name] = key
+            }
         }
-        
-        // Save the context
+        for (id, category) in outline.categoryByArsenal where byID[id]?.category != category {
+            byID[id]?.category = category
+        }
+        setCategoryKeys(keys)
+
         do {
             try viewContext.save()
-
-            // Reload widget to show new order
+            // Widget lists arsenals by createdDate, so it follows the new order.
             WidgetCenter.shared.reloadAllTimelines()
         } catch {
             print("Error reordering arsenals: \(error)")
+        }
+    }
+
+    // MARK: - Categories
+    /// Rename (`to: name`) or remove (`to: nil`) a category. Removing never deletes arsenals:
+    /// their sort keys sit right under the category's, so they stay in the same spot, now
+    /// top level, and keep firing as before.
+    private func recategorize(_ old: String, to new: String?) {
+        for arsenal in arsenals where arsenal.category == old {
+            arsenal.category = new
+        }
+        var expanded = expandedCategories
+        if expanded.remove(old) != nil, let new { expanded.insert(new) }
+        expandedCategoriesRaw = expanded.sorted().joined(separator: "\n")
+
+        var keys = categoryKeys
+        let oldKey = keys.removeValue(forKey: old)
+        if let new, keys[new] == nil { keys[new] = oldKey }
+        setCategoryKeys(keys)
+
+        do {
+            try viewContext.save()
+        } catch {
+            print("Error updating category: \(error)")
+        }
+    }
+}
+
+/// Category row: tap the name or chevron to collapse, ••• or swipe for rename/remove, hold to
+/// drag. No context menu: long-press is the drag gesture. Separate borderless buttons so each
+/// part gets its own tap target inside the row.
+struct CategoryHeader: View {
+    let name: String
+    let count: Int
+    let isExpanded: Bool
+    let onToggle: () -> Void
+    let onRename: () -> Void
+    let onRemove: () -> Void
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Button(action: onToggle) {
+                HStack(spacing: 8) {
+                    Text(name)
+                        .font(.headline)
+                        .foregroundStyle(Color.primary)
+                    Text("\(count)")
+                        .font(.subheadline)
+                        .foregroundStyle(Color(.secondaryLabel))
+                        .contentTransition(.numericText())
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+
+            Menu {
+                actions
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color(.secondaryLabel))
+                    .frame(width: 36, height: 32)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("\(name) options")
+
+            Button(action: onToggle) {
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Color(.secondaryLabel))
+                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                    .frame(width: 28, height: 32)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(isExpanded ? "Collapse \(name)" : "Expand \(name)")
+        }
+        .textCase(nil)
+        .tint(Color(.secondaryLabel))
+        .padding(.top, 10)
+        .padding(.bottom, 2)
+        .sensoryFeedback(.selection, trigger: isExpanded)
+    }
+
+    @ViewBuilder private var actions: some View {
+        Button(action: onRename) {
+            Label("Rename", systemImage: "pencil")
+        }
+        Button(role: .destructive, action: onRemove) {
+            Label("Remove Category", systemImage: "folder.badge.minus")
         }
     }
 }

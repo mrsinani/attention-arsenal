@@ -15,6 +15,9 @@ struct EditArsenalView: View {
     @State private var nudgeTiming: NudgeTiming
     @State private var notificationStartDate: Date
     @State private var isImportant: Bool
+    @State private var category: String
+    @State private var respectsQuietHours: Bool
+    @AppStorage("lastRespectsQuietHours") private var lastRespectsQuietHours = true
     @State private var showingPermissionAlert = false
     @State private var showingStartDateAlert = false
     @State private var isSaving = false
@@ -36,6 +39,8 @@ struct EditArsenalView: View {
             initialValue: persistedStart ?? NudgeTimingSection.defaultStartDate()
         )
         self._isImportant = State(initialValue: arsenal.isImportant)
+        self._category = State(initialValue: arsenal.category ?? "")
+        self._respectsQuietHours = State(initialValue: arsenal.respectsQuietHours)
     }
     
     var body: some View {
@@ -72,6 +77,8 @@ struct EditArsenalView: View {
                     }
                 }
 
+                CategoryPickerSection(category: $category)
+
                 NudgeTimingSection(
                     nudgeTiming: $nudgeTiming,
                     notificationStartDate: $notificationStartDate
@@ -82,6 +89,11 @@ struct EditArsenalView: View {
                 IntervalSelectionView(
                     intervalConfig: $intervalConfig,
                     isAuthorized: notificationManager.isAuthorized
+                )
+
+                QuietHoursToggleSection(
+                    respectsQuietHours: $respectsQuietHours,
+                    intervalType: intervalConfig.type
                 )
             }
             .navigationTitle("Edit Arsenal")
@@ -158,11 +170,15 @@ struct EditArsenalView: View {
             intervalConfig: intervalConfig,
             shouldUpdateNotificationStartDate: true,
             notificationStartDate: resolvedNotificationStartDate,
-            isImportant: isImportant
+            isImportant: isImportant,
+            shouldUpdateCategory: true,
+            category: category.isEmpty ? nil : category,
+            respectsQuietHours: respectsQuietHours
         )
         
         if success {
             IntervalConfiguration.lastUsed = intervalConfig
+            lastRespectsQuietHours = respectsQuietHours
             isSaving = false
             dismiss()
         } else {

@@ -34,14 +34,31 @@ class NotificationManager: ObservableObject {
         }
     }
 
-    private func rescheduleAllActiveNotifications() {
+    private var quietHoursRescheduleWork: DispatchWorkItem?
+
+    /// Settings → Quiet Hours changed. Debounced so flipping the toggle or scrolling a time
+    /// picker doesn't block the main thread mid-animation (each reschedule waits on the
+    /// notification center), and limited to the arsenals quiet hours actually touch.
+    /// Lives here, not in the view, so closing Settings right away still applies the change.
+    func quietHoursDidChange() {
+        quietHoursRescheduleWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            self?.rescheduleAllActiveNotifications { arsenal in
+                arsenal.respectsQuietHours && [.minutes, .hours].contains(IntervalConfiguration(from: arsenal).type)
+            }
+        }
+        quietHoursRescheduleWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
+    }
+
+    func rescheduleAllActiveNotifications(where include: (Arsenal) -> Bool = { _ in true }) {
         let context = PersistenceController.shared.container.viewContext
         let request: NSFetchRequest<Arsenal> = Arsenal.fetchRequest()
         request.predicate = NSPredicate(format: "isCompleted == NO")
         context.performAndWait {
             do {
                 let arsenals = try context.fetch(request)
-                for arsenal in arsenals {
+                for arsenal in arsenals where include(arsenal) {
                     let config = IntervalConfiguration(from: arsenal)
                     if config.type != .none {
                         self.scheduleNotification(for: arsenal)
@@ -121,7 +138,7 @@ class NotificationManager: ObservableObject {
                 self.scheduleNotification(for: arsenal)
                 let budget = self.perArsenalBatchBudget(
                     batchedCount: activeArsenals.filter {
-                        IntervalConfiguration(from: $0.0).usesBatchedScheduling(deferredStart: $0.0.notificationStartDate)
+                        self.usesBatch($0.0, IntervalConfiguration(from: $0.0))
                     }.count,
                     totalPending: totalPending
                 )
@@ -129,7 +146,7 @@ class NotificationManager: ObservableObject {
             }
 
             let batchedArsenals = activeArsenals.filter {
-                $0.1.usesBatchedScheduling(deferredStart: $0.0.notificationStartDate)
+                self.usesBatch($0.0, $0.1)
             }
             guard !batchedArsenals.isEmpty else { return }
 
@@ -227,7 +244,8 @@ class NotificationManager: ObservableObject {
             batchSize: count,
             continuingFrom: pendingDates,
             earliestFire: earliestFireDate(for: arsenal),
-            deferredStart: deferredStart
+            deferredStart: deferredStart,
+            quietHours: quietHours(for: arsenal)
         )
         guard !triggers.isEmpty else { return 0 }
 
@@ -275,7 +293,7 @@ class NotificationManager: ObservableObject {
         cancelNotifications(for: arsenal)
 
         let earliestFire = earliestFireDate(for: arsenal)
-        let usesBatch = config.usesBatchedScheduling(deferredStart: deferredStart)
+        let usesBatch = self.usesBatch(arsenal, config)
 
         let batchSize: Int
         if usesBatch {
@@ -298,7 +316,8 @@ class NotificationManager: ObservableObject {
             for: config,
             batchSize: batchSize,
             earliestFire: earliestFire,
-            deferredStart: deferredStart
+            deferredStart: deferredStart,
+            quietHours: quietHours(for: arsenal)
         )
 
         #if DEBUG
@@ -324,6 +343,18 @@ class NotificationManager: ObservableObject {
         }
     }
 
+    /// Quiet hours that apply to this arsenal's nudges, or nil.
+    func quietHours(for arsenal: Arsenal) -> QuietHours? {
+        arsenal.respectsQuietHours ? QuietHours.current : nil
+    }
+
+    private func usesBatch(_ arsenal: Arsenal, _ config: IntervalConfiguration) -> Bool {
+        config.usesBatchedScheduling(
+            deferredStart: arsenal.notificationStartDate,
+            quietHours: quietHours(for: arsenal) != nil
+        )
+    }
+
     /// Internal (not private) so tests can drive it directly with an injected `Self.now`.
     func earliestFireDate(for arsenal: Arsenal) -> Date {
         if let start = arsenal.notificationStartDate {
@@ -341,7 +372,7 @@ class NotificationManager: ObservableObject {
             request.predicate = NSPredicate(format: "isCompleted == NO")
             do {
                 count = max(1, try context.fetch(request).filter {
-                    IntervalConfiguration(from: $0).usesBatchedScheduling(deferredStart: $0.notificationStartDate)
+                    self.usesBatch($0, IntervalConfiguration(from: $0))
                 }.count)
             } catch {
                 count = 1
@@ -356,15 +387,17 @@ class NotificationManager: ObservableObject {
         for config: IntervalConfiguration,
         batchSize: Int,
         earliestFire: Date,
-        deferredStart: Date?
+        deferredStart: Date?,
+        quietHours: QuietHours? = nil
     ) -> [UNNotificationTrigger] {
-        if config.usesBatchedScheduling(deferredStart: deferredStart) {
+        if config.usesBatchedScheduling(deferredStart: deferredStart, quietHours: quietHours != nil) {
             return createBatchedTriggers(
                 for: config,
                 batchSize: batchSize,
                 continuingFrom: nil,
                 earliestFire: earliestFire,
-                deferredStart: deferredStart
+                deferredStart: deferredStart,
+                quietHours: quietHours
             )
         }
 
@@ -470,7 +503,8 @@ class NotificationManager: ObservableObject {
         batchSize: Int,
         continuingFrom pendingDates: [Date]?,
         earliestFire: Date,
-        deferredStart: Date?
+        deferredStart: Date?,
+        quietHours: QuietHours? = nil
     ) -> [UNNotificationTrigger] {
         let userCalendar = Calendar(identifier: .gregorian)
         let userTimeZone = TimeZone.current
@@ -489,7 +523,15 @@ class NotificationManager: ObservableObject {
             } else {
                 fireDate = Self.now().addingTimeInterval(timeInterval)
             }
-            for _ in 0..<batchSize {
+            // Fires landing in quiet hours are dropped and the cadence restarts when they end,
+            // so "every 2 hours" resumes at 8:00, not at whatever 2-hour slot comes after it.
+            // Bounded so a pathological interval/window can't spin.
+            var attempts = 0
+            while triggers.count < batchSize && attempts < batchSize * 4 {
+                attempts += 1
+                if let quietHours, quietHours.contains(fireDate, calendar: userCalendar) {
+                    fireDate = quietHours.endDate(after: fireDate, calendar: userCalendar)
+                }
                 guard fireDate > Self.now() else {
                     fireDate = fireDate.addingTimeInterval(timeInterval)
                     continue

@@ -231,4 +231,38 @@ struct NotificationManagerTests {
         let firedDate = try #require(fireDate(of: trigger))
         #expect(abs(firedDate.timeIntervalSince(lastPending) - 7200) < 1)
     }
+
+    // MARK: - Quiet hours
+
+    @Test("hourly nudges skip quiet hours and resume when they end")
+    func hourlyNudgesSkipQuietHours() throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let evening = calendar.date(from: DateComponents(year: 2026, month: 4, day: 1, hour: 19, minute: 0))!
+        let previousClock = NotificationManager.now
+        NotificationManager.now = { evening }
+        defer { NotificationManager.now = previousClock }
+
+        let config = IntervalConfiguration(type: .hours, value: 2, hour: 9, minute: 0)
+        #expect(config.usesBatchedScheduling(deferredStart: nil, quietHours: true))
+
+        let triggers = NotificationManager.shared.createBatchedTriggers(
+            for: config, batchSize: 4, continuingFrom: nil,
+            earliestFire: evening, deferredStart: nil,
+            quietHours: QuietHours(start: 22 * 60, end: 8 * 60)
+        )
+        let fires = triggers.compactMap { fireDate(of: $0) }.map { calendar.dateComponents([.day, .hour], from: $0) }
+        // 21:00 fires; 23:00 … 07:00 are quiet; next is 08:00 sharp, then every 2 hours again.
+        #expect(fires.map(\.hour) == [21, 8, 10, 12])
+        #expect(fires.map(\.day) == [1, 2, 2, 2])
+    }
+
+    @Test("minutes nudges switch to dated fires only when quiet hours apply")
+    func minutesBatchOnlyWithQuietHours() {
+        let config = IntervalConfiguration(type: .minutes, value: 30, hour: 9, minute: 0)
+        #expect(!config.usesBatchedScheduling(deferredStart: nil))
+        #expect(config.usesBatchedScheduling(deferredStart: nil, quietHours: true))
+        let daily = IntervalConfiguration(type: .daily, value: 1, hour: 23, minute: 0)
+        #expect(!daily.usesBatchedScheduling(deferredStart: nil, quietHours: true))
+    }
+
 }

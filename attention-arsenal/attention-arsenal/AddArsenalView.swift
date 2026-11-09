@@ -13,6 +13,10 @@ struct AddArsenalView: View {
     @State private var nudgeTiming: NudgeTiming = .now
     @State private var notificationStartDate = NudgeTimingSection.defaultStartDate()
     @State private var isImportant = false
+    @State private var category = ""
+    /// New arsenals start with whatever you chose last time.
+    @AppStorage("lastRespectsQuietHours") private var lastRespectsQuietHours = true
+    @State private var respectsQuietHours = UserDefaults.standard.object(forKey: "lastRespectsQuietHours") as? Bool ?? true
     @State private var showingPermissionAlert = false
     @State private var showingStartDateAlert = false
     @State private var isSaving = false
@@ -55,6 +59,8 @@ struct AddArsenalView: View {
                     }
                 }
 
+                CategoryPickerSection(category: $category)
+
                 NudgeTimingSection(
                     nudgeTiming: $nudgeTiming,
                     notificationStartDate: $notificationStartDate
@@ -65,6 +71,11 @@ struct AddArsenalView: View {
                 IntervalSelectionView(
                     intervalConfig: $intervalConfig,
                     isAuthorized: notificationManager.isAuthorized
+                )
+
+                QuietHoursToggleSection(
+                    respectsQuietHours: $respectsQuietHours,
+                    intervalType: intervalConfig.type
                 )
             }
             .navigationTitle("New Arsenal")
@@ -139,9 +150,12 @@ struct AddArsenalView: View {
             description: descriptionToUse,
             intervalConfig: intervalConfig,
             notificationStartDate: resolvedNotificationStartDate,
-            isImportant: isImportant
+            isImportant: isImportant,
+            category: category.isEmpty ? nil : category,
+            respectsQuietHours: respectsQuietHours
         ) {
             IntervalConfiguration.lastUsed = intervalConfig
+            lastRespectsQuietHours = respectsQuietHours
             isSaving = false
             dismiss()
         } else {
